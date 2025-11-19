@@ -15,7 +15,9 @@ This installs:
 - `python-dotenv` - Environment variable management
 - And other supporting libraries
 
-### 2. Configure OpenAI API Key
+### 2. Configure API Keys
+
+You'll need **two** API keys: one for OpenAI and one for Hugging Face.
 
 **Create your `.env` file:**
 
@@ -23,7 +25,7 @@ This installs:
 cp .env.example .env
 ```
 
-**Edit `.env` and add your API key:**
+**Edit `.env` and add your keys:**
 
 ```bash
 # On macOS/Linux:
@@ -33,15 +35,27 @@ nano .env
 notepad .env
 ```
 
-**Add your key:**
+**Add both keys:**
 ```
-OPENAI_API_KEY=sk-proj-your-actual-key-here
+OPENAI_API_KEY=sk-proj-your-actual-openai-key-here
+HF_TOKEN=hf_your-actual-huggingface-token-here
 ```
 
-**Get an API key:**
+**Get an OpenAI API key:**
 - Go to: https://platform.openai.com/api-keys
 - Click "Create new secret key"
-- Copy and paste into your `.env` file
+- Copy and paste into your `.env` file as `OPENAI_API_KEY`
+
+**Get a Hugging Face token:**
+- Go to: https://huggingface.co/settings/tokens
+- Click "Create new token" or "New token"
+- Select "Read" access (that's all we need)
+- Copy and paste into your `.env` file as `HF_TOKEN`
+
+**Why do we need Hugging Face?**
+- The ECB-FED speeches dataset is hosted on Hugging Face
+- The dataset requires authentication to access
+- Your token proves you have permission to download it
 
 **Important**: Never commit your `.env` file to git (it's in `.gitignore`)
 
@@ -79,9 +93,9 @@ This will:
 
 ## Troubleshooting
 
-### "OPENAI_API_KEY not found"
+### "OPENAI_API_KEY not found" or "HF_TOKEN not found"
 
-**Problem**: The `.env` file wasn't created or the key wasn't added.
+**Problem**: The `.env` file wasn't created or the keys weren't added.
 
 **Solution**:
 ```bash
@@ -91,8 +105,14 @@ ls -la .env
 # If not, create it
 cp .env.example .env
 
-# Edit and add your key
+# Edit and add BOTH keys
 nano .env
+```
+
+Make sure you have both lines in your `.env` file:
+```
+OPENAI_API_KEY=sk-...
+HF_TOKEN=hf_...
 ```
 
 ### "ModuleNotFoundError"

@@ -5,8 +5,9 @@
 pandas>=2.0.0
 numpy>=1.24.0
 
-# Hugging Face datasets
+# Hugging Face datasets and authentication
 datasets>=2.14.0
+huggingface-hub>=0.20.0
 
 # OpenAI API
 openai>=1.12.0

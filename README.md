@@ -121,6 +121,7 @@ data/
 
 - **Python 3.9 or higher**
 - **OpenAI API Key** ([Get one here](https://platform.openai.com/api-keys))
+- **Hugging Face Token** ([Get one here](https://huggingface.co/settings/tokens))
 - **Git** (for version control)
 
 ### Step-by-Step Setup
@@ -150,13 +151,13 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**4. Set up your OpenAI API key**
+**4. Set up your API keys**
 
 ```bash
 # Copy the example file
 cp .env.example .env
 
-# Edit .env and add your API key
+# Edit .env and add your API keys
 # On macOS/Linux:
 nano .env
 
@@ -164,10 +165,15 @@ nano .env
 notepad .env
 ```
 
-Add your key to the `.env` file:
+Add **both** keys to the `.env` file:
 ```
-OPENAI_API_KEY=sk-your-actual-api-key-here
+OPENAI_API_KEY=sk-your-actual-openai-key-here
+HF_TOKEN=hf_your-actual-huggingface-token-here
 ```
+
+**Where to get tokens:**
+- OpenAI: https://platform.openai.com/api-keys
+- Hugging Face: https://huggingface.co/settings/tokens (select "Read" access)
 
 **5. Verify installation**
 

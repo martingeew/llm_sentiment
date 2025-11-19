@@ -14,6 +14,7 @@ import pandas as pd
 from datasets import load_dataset
 from pathlib import Path
 from typing import Optional
+from huggingface_hub import login
 from config import Config
 
 
@@ -29,9 +30,27 @@ class DataLoader:
     """
 
     def __init__(self):
-        """Initialize the DataLoader with configuration settings."""
+        """
+        Initialize the DataLoader with configuration settings.
+
+        For beginners:
+        - This sets up the data loader with necessary credentials
+        - Authenticates with Hugging Face to access the dataset
+        """
         self.dataset_name = Config.DATASET_NAME
         self.raw_data_dir = Config.RAW_DATA_DIR
+
+        # Authenticate with Hugging Face
+        # This is required to access the ECB-FED speeches dataset
+        if Config.HF_TOKEN:
+            try:
+                login(token=Config.HF_TOKEN, add_to_git_credential=False)
+                print("✓ Authenticated with Hugging Face")
+            except Exception as e:
+                print(f"⚠️  Hugging Face authentication warning: {e}")
+                print("   Will attempt to load dataset anyway...")
+        else:
+            print("⚠️  No Hugging Face token found. Some datasets may not be accessible.")
 
     def load_from_huggingface(self, force_download: bool = False) -> pd.DataFrame:
         """
@@ -65,7 +84,11 @@ class DataLoader:
 
         try:
             # Load dataset using Hugging Face datasets library
-            dataset = load_dataset(self.dataset_name)
+            # The token parameter authenticates us to access gated datasets
+            dataset = load_dataset(
+                self.dataset_name,
+                token=Config.HF_TOKEN  # Use authentication token
+            )
 
             # Convert to pandas DataFrame
             # Note: Hugging Face datasets usually have a 'train' split

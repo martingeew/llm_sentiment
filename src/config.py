@@ -63,6 +63,13 @@ class Config:
     # We use 0.3 for consistency while allowing some flexibility
     TEMPERATURE = 0.3
 
+    # ==================== HUGGING FACE SETTINGS ====================
+    # Settings for accessing Hugging Face datasets
+
+    # Your Hugging Face token (loaded from .env file for security)
+    # Required to access gated/private datasets like ECB-FED speeches
+    HF_TOKEN = os.getenv("HF_TOKEN")
+
     # ==================== DATASET SETTINGS ====================
     # Settings for the Hugging Face dataset we're using
 
@@ -216,10 +223,18 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
                 "See .env.example for the format."
             )
 
+        if not Config.HF_TOKEN:
+            raise ValueError(
+                "HF_TOKEN not found in environment variables. "
+                "Please add your Hugging Face token to the .env file. "
+                "Get a token from: https://huggingface.co/settings/tokens"
+            )
+
         print("✓ Configuration validated successfully")
         print(f"✓ Project root: {Config.PROJECT_ROOT}")
         print(f"✓ Using model: {Config.MODEL_NAME}")
         print(f"✓ Sample period: {Config.SAMPLE_START_YEAR}-{Config.SAMPLE_END_YEAR}")
+        print(f"✓ Hugging Face authentication: Configured")
 
 
 # When this file is run directly, validate the configuration
