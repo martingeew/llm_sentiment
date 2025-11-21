@@ -187,35 +187,53 @@ You should see: `✅ Configuration is ready to use!`
 
 ## Quick Start
 
-### Run Phase 1 Demo
+### Run Phase 1 (Two-Step Process)
 
+Phase 1 is split into two scripts for flexibility:
+
+**Step 1: Data Preparation**
 ```bash
-python phase1_demo.py
+python phase1_data_prep.py
 ```
 
 This will:
 1. Download the ECB-FED speeches dataset (~2-3 minutes first run)
 2. Sample speeches from 2022-2023
-3. Create a batch processing file
-4. Show cost comparison
+3. Save sample data to CSV
+
+**Step 2: Batch File Creation**
+```bash
+python phase1_batch_prep.py
+```
+
+This will:
+1. Load the sample data (from Step 1)
+2. Create batch processing file
+3. Show cost comparison
+
+**Why two scripts?**
+- Run data prep once, create multiple batch variations
+- Iterate on prompts without re-downloading data
+- Clearer separation of concerns
 
 **Example Output:**
 
 ```
 ========================================
-PHASE 1 COMPLETE ✅
+BATCH PREPARATION COMPLETE ✅
 ========================================
 
 📁 Files created:
-   1. Sample data:  data/processed/sample_2022_2023.csv
-   2. Batch file:   data/batch_input/batch_sample_2022_2023.jsonl
-   3. Statistics:   data/results/phase1_statistics.json
+   1. Batch file:   data/batch_input/batch_sample_2022_2023.jsonl
+   2. Statistics:   data/results/phase1_statistics.json
 
 💰 Cost Estimates:
    Batch API:     $12.50
    Real-time API: $25.00
    Savings:       $12.50 (50% discount)
 ```
+
+**Legacy:** You can still run `python phase1_demo.py` to do everything in one go.
 
 ### Inspect the Results
 
