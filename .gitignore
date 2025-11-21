@@ -29,13 +29,15 @@ config/secrets.json
 *.key
 
 # Data files
+# Keep raw data ignored (large dataset from Hugging Face)
 data/raw/*.csv
 data/raw/*.jsonl
 data/raw/*.parquet
-data/processed/*.csv
-data/processed/*.jsonl
-data/batch_input/*.jsonl
-data/batch_output/*.jsonl
+
+# Allow committing processed, batch_input, and batch_output for Phase 1
+# (These are small and important for documentation)
+
+# Keep results ignored (analysis outputs)
 data/results/*.csv
 data/results/*.pkl
 

@@ -70,18 +70,21 @@ def main():
 
     # Sample 2022-2023 for testing
     sample_df = loader.sample_data(
-        df,
-        start_year=Config.SAMPLE_START_YEAR,
-        end_year=Config.SAMPLE_END_YEAR
+        df, start_year=Config.SAMPLE_START_YEAR, end_year=Config.SAMPLE_END_YEAR
     )
 
     print(f"\n📋 Sample Data Summary:")
     print(f"   Total speeches: {len(sample_df)}")
 
-    if 'institution' in sample_df.columns:
-        print(f"\n   By institution:")
-        for institution, count in sample_df['institution'].value_counts().items():
-            print(f"      {institution}: {count}")
+    if "country" in sample_df.columns:
+        print(f"\n   By country (institution):")
+        for country, count in sample_df["country"].value_counts().items():
+            print(f"      {country}: {count}")
+
+    # Display columns available
+    print(f"\n   Available columns:")
+    for col in sample_df.columns:
+        print(f"      - {col}")
 
     # Save sample for reference
     sample_file = Config.PROCESSED_DATA_DIR / "sample_2022_2023.csv"
@@ -98,7 +101,9 @@ def main():
 
     print("\n🎯 What we've done:")
     print("   ✓ Loaded ECB-FED speeches dataset from Hugging Face")
-    print(f"   ✓ Sampled {len(sample_df)} speeches from {Config.SAMPLE_START_YEAR}-{Config.SAMPLE_END_YEAR}")
+    print(
+        f"   ✓ Sampled {len(sample_df)} speeches from {Config.SAMPLE_START_YEAR}-{Config.SAMPLE_END_YEAR}"
+    )
     print("   ✓ Saved sample to CSV file")
 
     print("\n📝 Next Step:")
@@ -116,4 +121,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
