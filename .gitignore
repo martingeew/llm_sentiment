@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# API Keys and Secrets
+.env
+config/secrets.json
+*.key
+
+# Data files
+# Keep raw data ignored (large dataset from Hugging Face)
+data/raw/*.csv
+data/raw/*.jsonl
+data/raw/*.parquet
+
+# Allow committing processed, batch_input, and batch_output for Phase 1
+# (These are small and important for documentation)
+
+# Keep results ignored (analysis outputs)
+data/results/*.csv
+data/results/*.pkl
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
