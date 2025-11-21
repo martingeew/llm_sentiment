@@ -49,16 +49,18 @@ We use OpenAI's **Batch API** instead of real-time API calls:
 
 This project is organized into 5 phases, each building on the previous one:
 
-### ✅ **Phase 1** (Current): Setup & Batch Processing Demo
+### ✅ **Phase 1** (Complete): Setup & Batch Processing Demo
 - Load ECB-FED speeches dataset
 - Sample 2 years of data (2022-2023)
 - Create batch processing files
 - Compare costs: Batch API vs Real-time API
 
-### 🔄 **Phase 2**: Full Dataset Processing
-- Apply LLM analysis to complete dataset (1996-2025)
-- Validate LLM outputs for accuracy
-- Quality checks and error handling
+### 🔄 **Phase 2** (Current): Batch Submission & Output Validation
+- Submit batch job to OpenAI API
+- Monitor processing progress
+- Download and parse results
+- Validate LLM output quality
+- Verify scores are sensible
 
 ### 📊 **Phase 3**: Build Sentiment Indices
 - Create time series indices (hawkish/dovish, uncertainty, etc.)
@@ -83,7 +85,7 @@ Each phase will be completed with a Pull Request (PR) for review before moving t
 
 ---
 
-## Phase 1: Setup & Batch Processing Demo
+## Phase 1: Setup & Batch Processing Demo (✅ Complete)
 
 ### Goals
 
@@ -92,26 +94,91 @@ Each phase will be completed with a Pull Request (PR) for review before moving t
 3. ✅ Validate data quality and batch processing setup
 4. ✅ Show 50% cost savings from Batch API
 
-### What You'll Get
+### What You Get
 
-After running Phase 1, you'll have:
+After running Phase 1:
 
-- **Sample dataset**: 2 years of central bank speeches (2022-2023)
-- **Batch file**: Ready to upload to OpenAI (but not submitted yet)
-- **Cost estimates**: Exact costs for both Batch and Real-time API
-- **Validation**: Confirmation that everything is set up correctly
+- **Sample dataset**: 311 speeches from 2022-2023 (14 MB)
+- **Batch file**: 311 requests ready for OpenAI (4.9 MB)
+- **Cost estimates**: $2.32 (batch) vs $4.64 (real-time)
+- **Validation**: Confirmed everything works correctly
 
 ### Files Created
 
 ```
 data/
 ├── processed/
-│   └── sample_2022_2023.csv          # Your 2-year sample
+│   └── sample_2022_2023.csv          # 311 speeches
 ├── batch_input/
 │   └── batch_sample_2022_2023.jsonl  # Ready for OpenAI
 └── results/
     └── phase1_statistics.json        # Cost breakdown
 ```
+
+---
+
+## Phase 2: Batch Submission & Output Validation (🔄 Current)
+
+### Goals
+
+1. 🔄 Submit batch job to OpenAI
+2. 🔄 Monitor processing progress
+3. 🔄 Download and parse results
+4. 🔄 Validate LLM output quality
+5. 🔄 Verify sentiment scores are sensible
+
+### What You'll Get
+
+After running Phase 2:
+
+- **Sentiment scores**: All 5 dimensions for each speech
+- **Validation report**: Quality metrics and error analysis
+- **Distribution analysis**: Check scores look reasonable
+- **Parsed CSV**: Ready for Phase 3 analysis
+
+### Files Created
+
+```
+data/
+├── batch_output/
+│   └── batch_results_2022_2023.jsonl  # Raw LLM outputs
+└── results/
+    ├── sentiment_results_2022_2023.csv # Parsed scores
+    ├── phase2_batch_info.json          # Batch tracking
+    └── phase2_validation_report.json   # Quality report
+```
+
+### How to Run
+
+**Option 1: Submit and monitor**
+```bash
+python phase2_batch_submit.py
+```
+
+**Option 2: Submit and check later**
+```bash
+# Submit
+python phase2_batch_submit.py
+# (say 'n' when asked to monitor)
+
+# Check later
+python phase2_check_status.py
+```
+
+**Expected Cost:** ~$2.32 for 2022-2023 sample
+**Expected Time:** 30 minutes to 4 hours
+
+### Validation Checks
+
+The validator automatically checks:
+- ✅ All required fields present
+- ✅ Scores within valid ranges (-100 to +100, 0 to 100, etc.)
+- ✅ No invalid values or nonsense
+- ✅ Distributions look reasonable
+
+**Target validation rate:** >95%
+
+See [docs/PHASE2.md](docs/PHASE2.md) for detailed documentation.
 
 ---
 
