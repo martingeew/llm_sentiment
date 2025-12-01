@@ -163,7 +163,8 @@ Extract 2-3 direct quotes that best support your hawkish/dovish score.
 Based on this speech, predict the likely immediate market reaction:
 - Stock market: "rise" / "fall" / "neutral"
 - Bond yields: "rise" / "fall" / "neutral"
-- Currency (USD for Fed, EUR for ECB): "strengthen" / "weaken" / "neutral"
+- Currency (USD for Fed, EUR for ECB): "rise" / "fall" / "neutral"
+  (use "rise" for strengthen, "fall" for weaken)
 - Brief reasoning: One sentence explaining your prediction
 
 **Output Format:**
@@ -184,7 +185,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "market_impact": {{
     "stocks": "rise|fall|neutral",
     "bonds": "rise|fall|neutral",
-    "currency": "strengthen|weaken|neutral",
+    "currency": "rise|fall|neutral",
     "reasoning": "brief explanation"
   }},
   "summary": "One paragraph summarizing the main policy message and stance"
