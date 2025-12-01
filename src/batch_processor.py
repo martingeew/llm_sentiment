@@ -261,6 +261,57 @@ class BatchProcessor:
 
         return status_info
 
+    def wait_for_in_progress(self, batch_id: str,
+                             timeout: int = 300,
+                             poll_interval: int = 10) -> Dict[str, Any]:
+        """
+        Wait for batch to move from 'validating' to 'in_progress' or beyond.
+
+        Args:
+            batch_id: The batch ID to monitor
+            timeout: Maximum time to wait in seconds (default 5 minutes)
+            poll_interval: How often to check in seconds (default 10 seconds)
+
+        Returns:
+            Current batch status information
+
+        For beginners:
+        - When you submit a batch, it starts in 'validating' status
+        - After ~30-60 seconds, it moves to 'in_progress'
+        - Once 'in_progress', it's out of the queue and processing
+        - This function waits for that transition
+        """
+
+        start_time = time.time()
+        last_status = None
+
+        while True:
+            elapsed = time.time() - start_time
+
+            # Check timeout
+            if elapsed > timeout:
+                print(f"\n   Timeout waiting for in_progress (waited {elapsed:.0f}s)")
+                break
+
+            # Get current status
+            status_info = self.check_batch_status(batch_id)
+            current_status = status_info['status']
+
+            # Print update if status changed
+            if current_status != last_status:
+                print(f"   Status: {current_status}")
+                last_status = current_status
+
+            # If no longer validating, we're done
+            if current_status != 'validating':
+                return status_info
+
+            # Wait before checking again
+            time.sleep(poll_interval)
+
+        # Return current status even if timeout
+        return self.check_batch_status(batch_id)
+
     def download_results(self, batch_id: str, output_file: Path) -> Path:
         """
         Download results from a completed batch job.

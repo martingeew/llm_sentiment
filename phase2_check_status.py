@@ -6,12 +6,17 @@ and downloads results if complete.
 
 For beginners:
 - Use this if you stopped monitoring or want to check back later
-- Reads the batch ID from phase2_batch_info.json
+- Reads the batch ID from phase2_batch_info.json or chunk info files
 - No additional charges (just checking status)
-- Usage: python phase2_check_status.py
+
+Usage:
+    python phase2_check_status.py              # Auto-detect chunks or single batch
+    python phase2_check_status.py --all-chunks # Check all chunks
+    python phase2_check_status.py --chunk 1    # Check specific chunk
 """
 
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
@@ -25,11 +30,185 @@ from output_validator import OutputValidator
 from utils import print_section_header, save_json, load_json
 
 
+def detect_chunk_files():
+    """Detect if chunk info files exist."""
+    chunk_files = sorted(Config.RESULTS_DIR.glob("phase2_chunk*_info.json"))
+    return chunk_files if chunk_files else None
+
+
+def check_all_chunks_status():
+    """Check status of all chunks and display summary."""
+    chunk_files = detect_chunk_files()
+
+    if not chunk_files:
+        print("\n   Error: No chunk info files found")
+        print(f"   Have you run: python phase2_batch_submit.py --all-chunks")
+        return
+
+    print("=" * 70)
+    print("CHUNK STATUS SUMMARY".center(70))
+    print("=" * 70)
+
+    processor = BatchProcessor()
+
+    # Collect status for all chunks
+    chunk_statuses = []
+    for chunk_file in chunk_files:
+        chunk_info = load_json(chunk_file)
+        chunk_num = chunk_info['chunk_number']
+        batch_id = chunk_info['batch_id']
+
+        try:
+            status = processor.check_batch_status(batch_id)
+            chunk_statuses.append({
+                'chunk': chunk_num,
+                'batch_id': batch_id,
+                'status': status['status'],
+                'total': status['request_counts'].get('total', 0) if status['request_counts'] else 0,
+                'completed': status['request_counts'].get('completed', 0) if status['request_counts'] else 0,
+                'failed': status['request_counts'].get('failed', 0) if status['request_counts'] else 0
+            })
+        except Exception as e:
+            print(f"\n   Error checking chunk {chunk_num}: {e}")
+            chunk_statuses.append({
+                'chunk': chunk_num,
+                'batch_id': batch_id,
+                'status': 'error',
+                'total': 0,
+                'completed': 0,
+                'failed': 0
+            })
+
+    # Display table
+    print(f"\n{'Chunk':<8} {'Status':<15} {'Progress':<15} {'Batch ID':<40}")
+    print("-" * 70)
+
+    status_counts = {'completed': 0, 'in_progress': 0, 'failed': 0, 'other': 0}
+
+    for cs in chunk_statuses:
+        progress = f"{cs['completed']}/{cs['total']}" if cs['total'] > 0 else "N/A"
+        print(f"{cs['chunk']:<8} {cs['status']:<15} {progress:<15} {cs['batch_id']:<40}")
+
+        # Count statuses
+        if cs['status'] == 'completed':
+            status_counts['completed'] += 1
+        elif cs['status'] == 'in_progress' or cs['status'] == 'validating':
+            status_counts['in_progress'] += 1
+        elif cs['status'] == 'failed':
+            status_counts['failed'] += 1
+        else:
+            status_counts['other'] += 1
+
+    # Summary
+    print("\n" + "=" * 70)
+    print("SUMMARY".center(70))
+    print("=" * 70)
+
+    total_chunks = len(chunk_statuses)
+    print(f"\n   Total chunks: {total_chunks}")
+    print(f"   Completed: {status_counts['completed']}")
+    print(f"   In progress: {status_counts['in_progress']}")
+    print(f"   Failed: {status_counts['failed']}")
+
+    if status_counts['completed'] == total_chunks:
+        print(f"\n   ALL CHUNKS COMPLETED!")
+        print(f"\n   Next step:")
+        print(f"   python phase2_download_results.py")
+    elif status_counts['in_progress'] > 0:
+        print(f"\n   Some chunks still processing. Check back later.")
+    elif status_counts['failed'] > 0:
+        print(f"\n   Some chunks failed. Check error details.")
+
+    print("\n" + "=" * 70)
+
+
+def check_single_chunk_status(chunk_num):
+    """Check status of a specific chunk."""
+    chunk_file = Config.RESULTS_DIR / f"phase2_chunk{chunk_num:02d}_info.json"
+
+    if not chunk_file.exists():
+        print(f"\n   Error: Chunk {chunk_num} info file not found")
+        print(f"   Expected: {chunk_file}")
+        return
+
+    print("=" * 70)
+    print(f"CHUNK {chunk_num} STATUS".center(70))
+    print("=" * 70)
+
+    chunk_info = load_json(chunk_file)
+    batch_id = chunk_info['batch_id']
+
+    print(f"\n   Batch ID: {batch_id}")
+    print(f"   Submitted: {chunk_info['submitted_at']}")
+    print(f"   Speeches: {chunk_info['num_requests']}")
+
+    processor = BatchProcessor()
+    status = processor.check_batch_status(batch_id)
+
+    print(f"\n   Status: {status['status']}")
+
+    if status['request_counts']:
+        counts = status['request_counts']
+        total = counts.get('total', 0)
+        completed = counts.get('completed', 0)
+        failed = counts.get('failed', 0)
+
+        if total > 0:
+            progress = (completed / total) * 100
+            print(f"   Progress: {completed}/{total} ({progress:.1f}%)")
+            if failed > 0:
+                print(f"   Failed: {failed}")
+
+    print("\n" + "=" * 70)
+
+
 def main():
     """
     Check batch status and download results if ready.
     """
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description="Check batch job status"
+    )
+    parser.add_argument(
+        '--all-chunks',
+        action='store_true',
+        help='Check status of all chunks'
+    )
+    parser.add_argument(
+        '--chunk',
+        type=int,
+        help='Check status of specific chunk'
+    )
 
+    args = parser.parse_args()
+
+    # Detect if chunks exist
+    chunk_files = detect_chunk_files()
+
+    # Determine mode
+    if args.all_chunks:
+        check_all_chunks_status()
+        return
+
+    elif args.chunk:
+        check_single_chunk_status(args.chunk)
+        return
+
+    # Auto-detect mode
+    if chunk_files:
+        # Chunks exist, use chunk mode
+        print("=" * 70)
+        print("CHUNK FILES DETECTED".center(70))
+        print("=" * 70)
+
+        print(f"\n   Found {len(chunk_files)} chunk info files")
+        print(f"\n   Checking all chunks...")
+        print()
+        check_all_chunks_status()
+        return
+
+    # No chunks, use original workflow
     print("=" * 70)
     print("PHASE 2: CHECK BATCH STATUS".center(70))
     print("Central Bank Communication Sentiment Analysis".center(70))

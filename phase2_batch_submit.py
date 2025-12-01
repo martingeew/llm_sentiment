@@ -9,15 +9,21 @@ For beginners:
 - This will make REAL API calls and incur costs
 - Estimated cost: ~$2.32 for 2022-2023 sample
 - Process takes up to 24 hours (usually 30min - 4 hours)
-- Usage: python phase2_batch_submit.py
+
+Usage:
+    python phase2_batch_submit.py              # Auto-detect chunks or single batch
+    python phase2_batch_submit.py --all-chunks # Submit all chunks sequentially
+    python phase2_batch_submit.py --chunk 1    # Submit single chunk
 
 IMPORTANT: This script makes actual API calls and charges will apply!
 """
 
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
+import json
 
 # Add src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -28,11 +34,221 @@ from output_validator import OutputValidator
 from utils import print_section_header, save_json
 
 
+def detect_chunks():
+    """Detect if batch has been split into chunks."""
+    chunks_dir = Config.BATCH_INPUT_DIR / "chunks"
+    if not chunks_dir.exists():
+        return None
+
+    # Find all chunk files
+    chunk_files = sorted(chunks_dir.glob("batch_sample_2022_2023_chunk*.jsonl"))
+    return chunk_files if chunk_files else None
+
+
+def submit_single_chunk(chunk_num, chunk_file, processor):
+    """
+    Submit a single chunk and wait for it to enter 'in_progress' state.
+
+    Returns:
+        Dictionary with chunk submission info
+    """
+    print(f"\n{'='*70}")
+    print(f"CHUNK {chunk_num}".center(70))
+    print(f"{'='*70}")
+
+    # Count requests in chunk
+    with open(chunk_file, 'r', encoding='utf-8') as f:
+        num_requests = sum(1 for _ in f)
+
+    print(f"\nChunk file: {chunk_file.name}")
+    print(f"Speeches: {num_requests}")
+
+    # Upload file
+    file_id = processor.upload_batch_file(chunk_file)
+
+    # Create batch job
+    batch_id = processor.create_batch_job(
+        file_id,
+        description=f"Phase 2: ECB-FED Speeches 2022-2023 - Chunk {chunk_num}"
+    )
+
+    # Save chunk info
+    chunk_info = {
+        'chunk_number': chunk_num,
+        'batch_id': batch_id,
+        'file_id': file_id,
+        'submitted_at': datetime.now().isoformat(),
+        'chunk_file': str(chunk_file),
+        'num_requests': num_requests,
+        'status': 'submitted'
+    }
+
+    chunk_info_file = Config.RESULTS_DIR / f"phase2_chunk{chunk_num:02d}_info.json"
+    save_json(chunk_info, chunk_info_file)
+
+    print(f"\n   Batch ID: {batch_id}")
+    print(f"   Info saved: {chunk_info_file.name}")
+
+    # Wait for it to enter 'in_progress' state (exits validation queue)
+    print(f"\n   Waiting for chunk to start processing...")
+    status_info = processor.wait_for_in_progress(batch_id)
+
+    # Update chunk info with current status
+    chunk_info['status'] = status_info['status']
+    chunk_info['status_checked_at'] = datetime.now().isoformat()
+    save_json(chunk_info, chunk_info_file)
+
+    return chunk_info
+
+
+def submit_all_chunks(chunk_files):
+    """
+    Submit all chunks using smart sequential approach.
+    """
+    print("=" * 70)
+    print("PHASE 2: CHUNKED BATCH SUBMISSION".center(70))
+    print("Central Bank Communication Sentiment Analysis".center(70))
+    print("=" * 70)
+
+    print(f"\n   Found {len(chunk_files)} chunks to submit")
+    print(f"   Strategy: Smart sequential (submit, wait for in_progress, repeat)")
+    print(f"   Estimated time: ~{len(chunk_files) * 0.5:.0f}-{len(chunk_files) * 1:.0f} minutes")
+
+    # Calculate total cost estimate
+    total_requests = 0
+    for chunk_file in chunk_files:
+        with open(chunk_file, 'r', encoding='utf-8') as f:
+            total_requests += sum(1 for _ in f)
+
+    estimated_cost = total_requests * 0.0075  # Rough estimate
+    print(f"\n   Total speeches: {total_requests}")
+    print(f"   Estimated cost: ${estimated_cost:.2f}")
+
+    # Safety check
+    print("\n" + "=" * 70)
+    print("   WARNING: This will make REAL API calls".upper())
+    print("=" * 70)
+
+    response = input("\n   Type 'YES' to proceed with all chunks: ")
+    if response.upper() != 'YES':
+        print("\n   Aborted by user. No charges incurred.")
+        return None
+
+    # Validate configuration
+    print_section_header("VALIDATE CONFIGURATION")
+    try:
+        Config.validate()
+    except ValueError as e:
+        print(f"\n   Configuration Error: {e}")
+        return None
+
+    # Submit all chunks
+    print_section_header("SUBMITTING ALL CHUNKS")
+    processor = BatchProcessor()
+    submitted_chunks = []
+
+    for i, chunk_file in enumerate(chunk_files, 1):
+        try:
+            chunk_info = submit_single_chunk(i, chunk_file, processor)
+            submitted_chunks.append(chunk_info)
+
+            print(f"\n   Chunk {i}/{len(chunk_files)} submitted successfully!")
+
+            if chunk_info['status'] == 'in_progress':
+                print(f"   Status: in_progress (out of queue, can submit next)")
+            else:
+                print(f"   Status: {chunk_info['status']}")
+
+        except Exception as e:
+            print(f"\n   Error submitting chunk {i}: {e}")
+            print(f"   Successfully submitted {len(submitted_chunks)}/{len(chunk_files)} chunks")
+            return submitted_chunks
+
+    # All chunks submitted
+    print("\n" + "=" * 70)
+    print("ALL CHUNKS SUBMITTED SUCCESSFULLY!".center(70))
+    print("=" * 70)
+
+    print(f"\n   Total chunks submitted: {len(submitted_chunks)}")
+    print(f"\n   YOU CAN NOW CLOSE YOUR LAPTOP")
+    print(f"   All chunks are processing on OpenAI's servers")
+
+    print(f"\n   Next steps:")
+    print(f"   1. Check progress: python phase2_check_status.py --all-chunks")
+    print(f"   2. Download results: python phase2_download_results.py")
+
+    print("\n" + "=" * 70)
+
+    return submitted_chunks
+
+
 def main():
     """
     Main function for Phase 2: Submit batch and process results.
     """
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description="Submit batch jobs to OpenAI for sentiment analysis"
+    )
+    parser.add_argument(
+        '--all-chunks',
+        action='store_true',
+        help='Submit all chunks sequentially'
+    )
+    parser.add_argument(
+        '--chunk',
+        type=int,
+        help='Submit a specific chunk number'
+    )
 
+    args = parser.parse_args()
+
+    # Detect if chunks exist
+    chunk_files = detect_chunks()
+
+    # Determine mode
+    if args.all_chunks:
+        # Explicitly requested all chunks
+        if not chunk_files:
+            print("\n   Error: --all-chunks specified but no chunks found")
+            print(f"   Run: python split_batch.py")
+            return
+        submit_all_chunks(chunk_files)
+        return
+
+    elif args.chunk:
+        # Submit specific chunk
+        if not chunk_files:
+            print(f"\n   Error: --chunk specified but no chunks found")
+            print(f"   Run: python split_batch.py")
+            return
+
+        chunk_num = args.chunk
+        if chunk_num < 1 or chunk_num > len(chunk_files):
+            print(f"\n   Error: Chunk {chunk_num} not found")
+            print(f"   Valid chunks: 1-{len(chunk_files)}")
+            return
+
+        processor = BatchProcessor()
+        chunk_file = chunk_files[chunk_num - 1]
+        submit_single_chunk(chunk_num, chunk_file, processor)
+        return
+
+    # Auto-detect mode (no explicit flags)
+    if chunk_files:
+        # Chunks exist, ask user
+        print("=" * 70)
+        print("CHUNK FILES DETECTED".center(70))
+        print("=" * 70)
+
+        print(f"\n   Found {len(chunk_files)} chunk files")
+        print(f"\n   Options:")
+        print(f"   1. Submit all chunks: python phase2_batch_submit.py --all-chunks")
+        print(f"   2. Submit single chunk: python phase2_batch_submit.py --chunk N")
+        print(f"\n   Run with --all-chunks to proceed")
+        return
+
+    # No chunks, use original workflow
     print("=" * 70)
     print("PHASE 2: BATCH JOB SUBMISSION & PROCESSING".center(70))
     print("Central Bank Communication Sentiment Analysis".center(70))
