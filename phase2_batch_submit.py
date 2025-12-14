@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from config import Config
 from batch_processor import BatchProcessor
 from output_validator import OutputValidator
-from utils import print_section_header, save_json
+from utils import print_section_header, save_json, load_json
 
 
 def detect_chunks():
@@ -57,7 +57,7 @@ def submit_single_chunk(chunk_num, chunk_file, processor):
     print(f"{'='*70}")
 
     # Count requests in chunk
-    with open(chunk_file, 'r', encoding='utf-8') as f:
+    with open(chunk_file, "r", encoding="utf-8") as f:
         num_requests = sum(1 for _ in f)
 
     print(f"\nChunk file: {chunk_file.name}")
@@ -68,19 +68,18 @@ def submit_single_chunk(chunk_num, chunk_file, processor):
 
     # Create batch job
     batch_id = processor.create_batch_job(
-        file_id,
-        description=f"Phase 2: ECB-FED Speeches 2022-2023 - Chunk {chunk_num}"
+        file_id, description=f"Phase 2: ECB-FED Speeches 2022-2023 - Chunk {chunk_num}"
     )
 
     # Save chunk info
     chunk_info = {
-        'chunk_number': chunk_num,
-        'batch_id': batch_id,
-        'file_id': file_id,
-        'submitted_at': datetime.now().isoformat(),
-        'chunk_file': str(chunk_file),
-        'num_requests': num_requests,
-        'status': 'submitted'
+        "chunk_number": chunk_num,
+        "batch_id": batch_id,
+        "file_id": file_id,
+        "submitted_at": datetime.now().isoformat(),
+        "chunk_file": str(chunk_file),
+        "num_requests": num_requests,
+        "status": "submitted",
     }
 
     chunk_info_file = Config.RESULTS_DIR / f"phase2_chunk{chunk_num:02d}_info.json"
@@ -94,8 +93,8 @@ def submit_single_chunk(chunk_num, chunk_file, processor):
     status_info = processor.wait_for_in_progress(batch_id)
 
     # Update chunk info with current status
-    chunk_info['status'] = status_info['status']
-    chunk_info['status_checked_at'] = datetime.now().isoformat()
+    chunk_info["status"] = status_info["status"]
+    chunk_info["status_checked_at"] = datetime.now().isoformat()
     save_json(chunk_info, chunk_info_file)
 
     return chunk_info
@@ -111,13 +110,17 @@ def submit_all_chunks(chunk_files):
     print("=" * 70)
 
     print(f"\n   Found {len(chunk_files)} chunks to submit")
-    print(f"   Strategy: Smart sequential (submit, wait for in_progress, repeat)")
-    print(f"   Estimated time: ~{len(chunk_files) * 0.5:.0f}-{len(chunk_files) * 1:.0f} minutes")
+    print(
+        f"   Strategy: Smart sequential (submit, wait until processing starts, repeat)"
+    )
+    print(
+        f"   Estimated time: ~{len(chunk_files) * 3:.0f}-{len(chunk_files) * 5:.0f} minutes (~{len(chunk_files) * 4 / 60:.1f} hours)"
+    )
 
     # Calculate total cost estimate
     total_requests = 0
     for chunk_file in chunk_files:
-        with open(chunk_file, 'r', encoding='utf-8') as f:
+        with open(chunk_file, "r", encoding="utf-8") as f:
             total_requests += sum(1 for _ in f)
 
     estimated_cost = total_requests * 0.0075  # Rough estimate
@@ -130,7 +133,7 @@ def submit_all_chunks(chunk_files):
     print("=" * 70)
 
     response = input("\n   Type 'YES' to proceed with all chunks: ")
-    if response.upper() != 'YES':
+    if response.upper() != "YES":
         print("\n   Aborted by user. No charges incurred.")
         return None
 
@@ -146,32 +149,68 @@ def submit_all_chunks(chunk_files):
     print_section_header("SUBMITTING ALL CHUNKS")
     processor = BatchProcessor()
     submitted_chunks = []
+    skipped_chunks = []
 
     for i, chunk_file in enumerate(chunk_files, 1):
+        # Check if chunk was already submitted
+        chunk_info_file = Config.RESULTS_DIR / f"phase2_chunk{i:02d}_info.json"
+
+        if chunk_info_file.exists():
+            existing_info = load_json(chunk_info_file)
+            batch_id = existing_info["batch_id"]
+
+            # Check current status
+            try:
+                status = processor.check_batch_status(batch_id)
+                current_status = status["status"]
+
+                if current_status in ["in_progress", "completed"]:
+                    print(f"\n   Chunk {i}: Already {current_status}, skipping")
+                    skipped_chunks.append(i)
+                    continue
+                elif current_status == "failed":
+                    print(f"\n   Chunk {i}: Previously failed, will retry")
+                else:
+                    print(f"\n   Chunk {i}: Status is {current_status}, will resubmit")
+            except Exception as e:
+                print(f"\n   Chunk {i}: Error checking existing batch, will resubmit")
+
+        # Submit the chunk
         try:
             chunk_info = submit_single_chunk(i, chunk_file, processor)
             submitted_chunks.append(chunk_info)
 
             print(f"\n   Chunk {i}/{len(chunk_files)} submitted successfully!")
 
-            if chunk_info['status'] == 'in_progress':
+            if chunk_info["status"] == "in_progress":
                 print(f"   Status: in_progress (out of queue, can submit next)")
             else:
                 print(f"   Status: {chunk_info['status']}")
 
         except Exception as e:
             print(f"\n   Error submitting chunk {i}: {e}")
-            print(f"   Successfully submitted {len(submitted_chunks)}/{len(chunk_files)} chunks")
+            print(
+                f"   Successfully submitted {len(submitted_chunks)}/{len(chunk_files)} chunks"
+            )
+            print(
+                f"   Skipped {len(skipped_chunks)} chunks (already processing/completed)"
+            )
             return submitted_chunks
 
-    # All chunks submitted
+    # All chunks processed
     print("\n" + "=" * 70)
-    print("ALL CHUNKS SUBMITTED SUCCESSFULLY!".center(70))
+    print("SUBMISSION COMPLETE!".center(70))
     print("=" * 70)
 
-    print(f"\n   Total chunks submitted: {len(submitted_chunks)}")
-    print(f"\n   YOU CAN NOW CLOSE YOUR LAPTOP")
-    print(f"   All chunks are processing on OpenAI's servers")
+    print(f"\n   Newly submitted: {len(submitted_chunks)}")
+    print(f"   Skipped (already processing/completed): {len(skipped_chunks)}")
+    print(f"   Total chunks: {len(chunk_files)}")
+
+    if submitted_chunks:
+        print(f"\n   YOU CAN NOW CLOSE YOUR LAPTOP")
+        print(f"   All chunks are processing on OpenAI's servers")
+    else:
+        print(f"\n   All chunks already submitted!")
 
     print(f"\n   Next steps:")
     print(f"   1. Check progress: python phase2_check_status.py --all-chunks")
@@ -191,15 +230,9 @@ def main():
         description="Submit batch jobs to OpenAI for sentiment analysis"
     )
     parser.add_argument(
-        '--all-chunks',
-        action='store_true',
-        help='Submit all chunks sequentially'
+        "--all-chunks", action="store_true", help="Submit all chunks sequentially"
     )
-    parser.add_argument(
-        '--chunk',
-        type=int,
-        help='Submit a specific chunk number'
-    )
+    parser.add_argument("--chunk", type=int, help="Submit a specific chunk number")
 
     args = parser.parse_args()
 
@@ -262,7 +295,7 @@ def main():
     print("   Processing time: Up to 24 hours (typically 30min-4hrs)")
 
     response = input("\n   Type 'YES' to proceed: ")
-    if response.upper() != 'YES':
+    if response.upper() != "YES":
         print("\n❌ Aborted by user. No charges incurred.")
         return
 
@@ -308,17 +341,16 @@ def main():
 
     # Create batch job
     batch_id = processor.create_batch_job(
-        file_id,
-        description="Phase 2: ECB-FED Speeches 2022-2023 Sentiment Analysis"
+        file_id, description="Phase 2: ECB-FED Speeches 2022-2023 Sentiment Analysis"
     )
 
     # Save batch ID for later reference
     batch_info = {
-        'batch_id': batch_id,
-        'file_id': file_id,
-        'submitted_at': datetime.now().isoformat(),
-        'batch_file': str(batch_file),
-        'status': 'submitted'
+        "batch_id": batch_id,
+        "file_id": file_id,
+        "submitted_at": datetime.now().isoformat(),
+        "batch_file": str(batch_file),
+        "status": "submitted",
     }
 
     batch_info_file = Config.RESULTS_DIR / "phase2_batch_info.json"
@@ -337,24 +369,26 @@ def main():
     print("   To resume monitoring, run: python phase2_check_status.py")
 
     response = input("\n   Monitor now? (Y/n): ")
-    if response.lower() == 'n':
+    if response.lower() == "n":
         print("\n✅ Batch submitted successfully!")
         print(f"   Batch ID: {batch_id}")
-        print("\n   Run phase2_check_status.py later to check progress and download results.")
+        print(
+            "\n   Run phase2_check_status.py later to check progress and download results."
+        )
         return
 
     # Wait for completion
     status = processor.wait_for_completion(batch_id)
 
     # Update batch info with completion status
-    batch_info['status'] = status['status']
-    batch_info['completed_at'] = datetime.now().isoformat()
+    batch_info["status"] = status["status"]
+    batch_info["completed_at"] = datetime.now().isoformat()
     save_json(batch_info, batch_info_file)
 
     # ============================================================
     # STEP 5: Download Results
     # ============================================================
-    if status['status'] == 'completed':
+    if status["status"] == "completed":
         print_section_header("STEP 5: DOWNLOAD RESULTS")
 
         results_file = Config.BATCH_OUTPUT_DIR / "batch_results_2022_2023.jsonl"
@@ -386,9 +420,9 @@ def main():
         # Save validation report
         validation_file = Config.RESULTS_DIR / "phase2_validation_report.json"
         validation_report = {
-            'validation_results': validation_results,
-            'distributions': distributions,
-            'validated_at': datetime.now().isoformat()
+            "validation_results": validation_results,
+            "distributions": distributions,
+            "validated_at": datetime.now().isoformat(),
         }
         save_json(validation_report, validation_file)
 
@@ -408,12 +442,18 @@ def main():
         print(f"   Valid outputs: {validation_results['valid_speeches']}")
         print(f"   Validation rate: {validation_results['validation_rate']:.1f}%")
 
-        if validation_results['validation_rate'] >= 95:
-            print(f"\n✅ Excellent! {validation_results['validation_rate']:.1f}% validation rate")
-        elif validation_results['validation_rate'] >= 85:
-            print(f"\n⚠️  Good, but some issues: {validation_results['validation_rate']:.1f}% validation rate")
+        if validation_results["validation_rate"] >= 95:
+            print(
+                f"\n✅ Excellent! {validation_results['validation_rate']:.1f}% validation rate"
+            )
+        elif validation_results["validation_rate"] >= 85:
+            print(
+                f"\n⚠️  Good, but some issues: {validation_results['validation_rate']:.1f}% validation rate"
+            )
         else:
-            print(f"\n❌ Low validation rate: {validation_results['validation_rate']:.1f}%")
+            print(
+                f"\n❌ Low validation rate: {validation_results['validation_rate']:.1f}%"
+            )
             print("   Review validation report for details")
 
         print(f"\n📝 Next Steps:")
@@ -439,4 +479,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

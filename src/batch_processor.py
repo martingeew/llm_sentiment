@@ -50,8 +50,7 @@ class BatchProcessor:
 
         if not self.api_key:
             raise ValueError(
-                "OpenAI API key not found. "
-                "Set OPENAI_API_KEY in your .env file"
+                "OpenAI API key not found. " "Set OPENAI_API_KEY in your .env file"
             )
 
         # Initialize OpenAI client
@@ -76,11 +75,10 @@ class BatchProcessor:
         print(f"\n📤 Uploading batch file: {file_path}")
 
         try:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 # Upload file for batch processing
                 file_response = self.client.files.create(
-                    file=f,
-                    purpose="batch"  # Tells OpenAI this is for batch processing
+                    file=f, purpose="batch"  # Tells OpenAI this is for batch processing
                 )
 
             file_id = file_response.id
@@ -119,8 +117,9 @@ class BatchProcessor:
                 endpoint="/v1/chat/completions",  # What API endpoint to use
                 completion_window="24h",  # OpenAI has 24 hours to complete
                 metadata={
-                    "description": description or "Central bank speech sentiment analysis"
-                }
+                    "description": description
+                    or "Central bank speech sentiment analysis"
+                },
             )
 
             batch_id = batch_response.id
@@ -154,18 +153,22 @@ class BatchProcessor:
             batch = self.client.batches.retrieve(batch_id)
 
             status_info = {
-                'id': batch.id,
-                'status': batch.status,  # validating, in_progress, completed, failed, etc.
-                'created_at': batch.created_at,
-                'completed_at': batch.completed_at,
-                'failed_at': batch.failed_at,
-                'request_counts': {
-                    'total': batch.request_counts.total,
-                    'completed': batch.request_counts.completed,
-                    'failed': batch.request_counts.failed
-                } if batch.request_counts else {},
-                'output_file_id': batch.output_file_id,
-                'error_file_id': batch.error_file_id
+                "id": batch.id,
+                "status": batch.status,  # validating, in_progress, completed, failed, etc.
+                "created_at": batch.created_at,
+                "completed_at": batch.completed_at,
+                "failed_at": batch.failed_at,
+                "request_counts": (
+                    {
+                        "total": batch.request_counts.total,
+                        "completed": batch.request_counts.completed,
+                        "failed": batch.request_counts.failed,
+                    }
+                    if batch.request_counts
+                    else {}
+                ),
+                "output_file_id": batch.output_file_id,
+                "error_file_id": batch.error_file_id,
             }
 
             return status_info
@@ -174,9 +177,9 @@ class BatchProcessor:
             print(f"❌ Error checking batch status: {e}")
             raise
 
-    def wait_for_completion(self, batch_id: str,
-                           check_interval: int = None,
-                           timeout: int = None) -> Dict[str, Any]:
+    def wait_for_completion(
+        self, batch_id: str, check_interval: int = None, timeout: int = None
+    ) -> Dict[str, Any]:
         """
         Wait for a batch job to complete, with progress updates.
 
@@ -220,17 +223,17 @@ class BatchProcessor:
 
             # Get current status
             status_info = self.check_batch_status(batch_id)
-            current_status = status_info['status']
+            current_status = status_info["status"]
 
             # Print update if status changed
             if current_status != last_status:
                 print(f"\n📊 Status: {current_status}")
 
-                if status_info['request_counts']:
-                    counts = status_info['request_counts']
-                    total = counts.get('total', 0)
-                    completed = counts.get('completed', 0)
-                    failed = counts.get('failed', 0)
+                if status_info["request_counts"]:
+                    counts = status_info["request_counts"]
+                    total = counts.get("total", 0)
+                    completed = counts.get("completed", 0)
+                    failed = counts.get("failed", 0)
 
                     if total > 0:
                         progress = (completed / total) * 100
@@ -241,76 +244,126 @@ class BatchProcessor:
                 last_status = current_status
 
             # Check if job is finished
-            if current_status == 'completed':
+            if current_status == "completed":
                 print(f"\n✅ Batch job completed successfully!")
                 elapsed_hours = elapsed / 3600
                 print(f"   Total time: {elapsed_hours:.2f} hours")
                 return status_info
 
-            elif current_status == 'failed':
+            elif current_status == "failed":
                 print(f"\n❌ Batch job failed!")
                 return status_info
 
-            elif current_status in ['expired', 'cancelled']:
+            elif current_status in ["expired", "cancelled"]:
                 print(f"\n⚠️  Batch job {current_status}!")
                 return status_info
 
             # Wait before checking again
-            print(f"   Waiting {check_interval} seconds... (elapsed: {elapsed / 60:.1f} min)", end='\r')
+            print(
+                f"   Waiting {check_interval} seconds... (elapsed: {elapsed / 60:.1f} min)",
+                end="\r",
+            )
             time.sleep(check_interval)
 
         return status_info
 
-    def wait_for_in_progress(self, batch_id: str,
-                             timeout: int = 300,
-                             poll_interval: int = 10) -> Dict[str, Any]:
+    def wait_for_completion_or_processing(
+        self,
+        batch_id: str,
+        wait_for_completion: bool = False,
+        timeout: int = 86400,
+        poll_interval: int = 60,
+    ) -> Dict[str, Any]:
         """
-        Wait for batch to move from 'validating' to 'in_progress' or beyond.
+        Wait for batch to complete or start processing.
 
         Args:
             batch_id: The batch ID to monitor
-            timeout: Maximum time to wait in seconds (default 5 minutes)
-            poll_interval: How often to check in seconds (default 10 seconds)
+            wait_for_completion: If True, wait until fully completed (slow but safe)
+                                If False, wait until processing starts (faster but risky)
+            timeout: Maximum time to wait in seconds (default 24 hours)
+            poll_interval: How often to check in seconds (default 60 seconds)
 
         Returns:
             Current batch status information
-
-        For beginners:
-        - When you submit a batch, it starts in 'validating' status
-        - After ~30-60 seconds, it moves to 'in_progress'
-        - Once 'in_progress', it's out of the queue and processing
-        - This function waits for that transition
         """
 
         start_time = time.time()
         last_status = None
+
+        if wait_for_completion:
+            print(f"   Waiting for batch to COMPLETE (safe mode, may take hours)...")
+        else:
+            print(f"   Waiting for batch to start processing...")
 
         while True:
             elapsed = time.time() - start_time
 
             # Check timeout
             if elapsed > timeout:
-                print(f"\n   Timeout waiting for in_progress (waited {elapsed:.0f}s)")
+                print(f"\n   Timeout (waited {elapsed/3600:.1f} hours)")
                 break
 
             # Get current status
             status_info = self.check_batch_status(batch_id)
-            current_status = status_info['status']
+            current_status = status_info["status"]
+            request_counts = status_info.get("request_counts", {})
+            total_requests = request_counts.get("total", 0)
+            completed_requests = request_counts.get("completed", 0)
 
             # Print update if status changed
             if current_status != last_status:
                 print(f"   Status: {current_status}")
                 last_status = current_status
 
-            # If no longer validating, we're done
-            if current_status != 'validating':
-                return status_info
+            # If waiting for completion
+            if wait_for_completion:
+                if current_status == "completed":
+                    elapsed_min = elapsed / 60
+                    print(f"   Batch completed! (took {elapsed_min:.1f} min)")
+                    return status_info
+                elif current_status in ["failed", "expired", "cancelled"]:
+                    print(f"   Batch entered terminal state: {current_status}")
+                    return status_info
+
+                # Show progress
+                if total_requests > 0 and completed_requests > 0:
+                    progress = (completed_requests / total_requests) * 100
+                    print(
+                        f"   Progress: {completed_requests}/{total_requests} ({progress:.0f}%)",
+                        end="\r",
+                    )
+
+            else:
+                # If just waiting for processing to start
+                if current_status != "validating" and total_requests > 0:
+                    elapsed_min = elapsed / 60
+                    print(f"   Batch started processing (after {elapsed_min:.1f} min)")
+                    return status_info
+
+                if current_status in ["failed", "completed", "expired", "cancelled"]:
+                    print(f"   Batch entered terminal state: {current_status}")
+                    return status_info
 
             # Wait before checking again
             time.sleep(poll_interval)
 
         # Return current status even if timeout
         return self.check_batch_status(batch_id)
+
+    def wait_for_in_progress(
+        self, batch_id: str, timeout: int = 86400, poll_interval: int = 60
+    ) -> Dict[str, Any]:
+        """
+        DEPRECATED: Use wait_for_completion_or_processing instead.
+        Kept for backward compatibility.
+        """
+        return self.wait_for_completion_or_processing(
+            batch_id,
+            wait_for_completion=True,  # Use safe mode by default
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
 
     def download_results(self, batch_id: str, output_file: Path) -> Path:
         """
@@ -335,10 +388,12 @@ class BatchProcessor:
             # Get batch status to find output file
             status_info = self.check_batch_status(batch_id)
 
-            if status_info['status'] != 'completed':
-                raise ValueError(f"Batch is not completed (status: {status_info['status']})")
+            if status_info["status"] != "completed":
+                raise ValueError(
+                    f"Batch is not completed (status: {status_info['status']})"
+                )
 
-            output_file_id = status_info['output_file_id']
+            output_file_id = status_info["output_file_id"]
 
             if not output_file_id:
                 raise ValueError("No output file available")
@@ -347,7 +402,7 @@ class BatchProcessor:
             file_content = self.client.files.content(output_file_id)
 
             # Save to disk
-            with open(output_file, 'wb') as f:
+            with open(output_file, "wb") as f:
                 f.write(file_content.content)
 
             print(f"✓ Results saved to: {output_file}")
@@ -379,17 +434,19 @@ class BatchProcessor:
 
         results = []
 
-        with open(results_file, 'r', encoding='utf-8') as f:
+        with open(results_file, "r", encoding="utf-8") as f:
             for line in f:
                 result = json.loads(line)
 
                 # Extract the data we need
-                custom_id = result['custom_id']
-                response = result['response']
+                custom_id = result["custom_id"]
+                response = result["response"]
 
-                if response['status_code'] == 200:
+                if response["status_code"] == 200:
                     # Successful response
-                    message_content = response['body']['choices'][0]['message']['content']
+                    message_content = response["body"]["choices"][0]["message"][
+                        "content"
+                    ]
 
                     # Parse the JSON response from GPT
                     try:
@@ -397,21 +454,45 @@ class BatchProcessor:
 
                         # Flatten the nested structure
                         flat_result = {
-                            'speech_id': custom_id,
-                            'hawkish_dovish_score': sentiment_data.get('hawkish_dovish_score'),
-                            'topic_inflation': sentiment_data.get('topics', {}).get('inflation'),
-                            'topic_growth': sentiment_data.get('topics', {}).get('growth'),
-                            'topic_financial_stability': sentiment_data.get('topics', {}).get('financial_stability'),
-                            'topic_labor_market': sentiment_data.get('topics', {}).get('labor_market'),
-                            'topic_international': sentiment_data.get('topics', {}).get('international'),
-                            'uncertainty': sentiment_data.get('uncertainty'),
-                            'forward_guidance_strength': sentiment_data.get('forward_guidance_strength'),
-                            'market_impact_stocks': sentiment_data.get('market_impact', {}).get('stocks'),
-                            'market_impact_bonds': sentiment_data.get('market_impact', {}).get('bonds'),
-                            'market_impact_currency': sentiment_data.get('market_impact', {}).get('currency'),
-                            'market_impact_reasoning': sentiment_data.get('market_impact', {}).get('reasoning'),
-                            'summary': sentiment_data.get('summary'),
-                            'key_sentences': '|'.join(sentiment_data.get('key_sentences', []))
+                            "speech_id": custom_id,
+                            "hawkish_dovish_score": sentiment_data.get(
+                                "hawkish_dovish_score"
+                            ),
+                            "topic_inflation": sentiment_data.get("topics", {}).get(
+                                "inflation"
+                            ),
+                            "topic_growth": sentiment_data.get("topics", {}).get(
+                                "growth"
+                            ),
+                            "topic_financial_stability": sentiment_data.get(
+                                "topics", {}
+                            ).get("financial_stability"),
+                            "topic_labor_market": sentiment_data.get("topics", {}).get(
+                                "labor_market"
+                            ),
+                            "topic_international": sentiment_data.get("topics", {}).get(
+                                "international"
+                            ),
+                            "uncertainty": sentiment_data.get("uncertainty"),
+                            "forward_guidance_strength": sentiment_data.get(
+                                "forward_guidance_strength"
+                            ),
+                            "market_impact_stocks": sentiment_data.get(
+                                "market_impact", {}
+                            ).get("stocks"),
+                            "market_impact_bonds": sentiment_data.get(
+                                "market_impact", {}
+                            ).get("bonds"),
+                            "market_impact_currency": sentiment_data.get(
+                                "market_impact", {}
+                            ).get("currency"),
+                            "market_impact_reasoning": sentiment_data.get(
+                                "market_impact", {}
+                            ).get("reasoning"),
+                            "summary": sentiment_data.get("summary"),
+                            "key_sentences": "|".join(
+                                sentiment_data.get("key_sentences", [])
+                            ),
                         }
 
                         results.append(flat_result)
@@ -420,7 +501,9 @@ class BatchProcessor:
                         print(f"   ⚠️  Failed to parse response for {custom_id}: {e}")
 
                 else:
-                    print(f"   ⚠️  Request failed for {custom_id}: {response['status_code']}")
+                    print(
+                        f"   ⚠️  Request failed for {custom_id}: {response['status_code']}"
+                    )
 
         # Create DataFrame
         df = pd.DataFrame(results)
