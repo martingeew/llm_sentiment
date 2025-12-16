@@ -45,8 +45,13 @@ class Config:
     RESULTS_DIR = DATA_DIR / "results"
 
     # Create directories if they don't exist
-    for directory in [RAW_DATA_DIR, PROCESSED_DATA_DIR, BATCH_INPUT_DIR,
-                      BATCH_OUTPUT_DIR, RESULTS_DIR]:
+    for directory in [
+        RAW_DATA_DIR,
+        PROCESSED_DATA_DIR,
+        BATCH_INPUT_DIR,
+        BATCH_OUTPUT_DIR,
+        RESULTS_DIR,
+    ]:
         directory.mkdir(parents=True, exist_ok=True)
 
     # ==================== OPENAI API SETTINGS ====================
@@ -94,8 +99,9 @@ class Config:
     # ==================== PROMPT TEMPLATES ====================
 
     @staticmethod
-    def get_sentiment_prompt(speech_text: str, speaker: str,
-                            institution: str, date: str) -> str:
+    def get_sentiment_prompt(
+        speech_text: str, speaker: str, institution: str, date: str
+    ) -> str:
         """
         Creates the prompt that tells GPT-4 how to analyze a speech.
 
@@ -161,10 +167,14 @@ Extract 2-3 direct quotes that best support your hawkish/dovish score.
 
 **6. Market Impact Prediction:**
 Based on this speech, predict the likely immediate market reaction:
-- Stock market: "rise" / "fall" / "neutral"
-- Bond yields: "rise" / "fall" / "neutral"
-- Currency (USD for Fed, EUR for ECB): "rise" / "fall" / "neutral"
-  (use "rise" for strengthen, "fall" for weaken)
+- Stock market: EXACTLY "rise" or "fall" or "neutral" (no other words allowed)
+- Bond yields: EXACTLY "rise" or "fall" or "neutral" (no other words allowed)
+- Currency (USD for Fed, EUR for ECB): EXACTLY "rise" or "fall" or "neutral"
+
+CRITICAL: For currency, you MUST use ONLY these three exact words: "rise", "fall", or "neutral"
+DO NOT use words like "strengthen", "weaken", "appreciate", "depreciate", "up", "down", etc.
+ONLY use: "rise" (for strengthening), "fall" (for weakening), or "neutral"
+
 - Brief reasoning: One sentence explaining your prediction
 
 **Output Format:**
@@ -183,13 +193,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
   "forward_guidance_strength": <number 0-100>,
   "key_sentences": ["sentence 1", "sentence 2", "sentence 3"],
   "market_impact": {{
-    "stocks": "rise|fall|neutral",
-    "bonds": "rise|fall|neutral",
-    "currency": "rise|fall|neutral",
-    "reasoning": "brief explanation"
+    "stocks": "rise",
+    "bonds": "fall",
+    "currency": "rise"
   }},
+  "reasoning": "brief explanation",
   "summary": "One paragraph summarizing the main policy message and stance"
-}}"""
+}}
+
+IMPORTANT: The market_impact values MUST be exactly "rise", "fall", or "neutral" - no other words!"""
 
         return prompt
 
@@ -198,12 +210,12 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks):
     # These prices are per 1,000 tokens
 
     # Real-time API pricing
-    REALTIME_INPUT_PRICE_PER_1K = 0.0025   # $0.0025 per 1K input tokens
-    REALTIME_OUTPUT_PRICE_PER_1K = 0.010   # $0.010 per 1K output tokens
+    REALTIME_INPUT_PRICE_PER_1K = 0.0025  # $0.0025 per 1K input tokens
+    REALTIME_OUTPUT_PRICE_PER_1K = 0.010  # $0.010 per 1K output tokens
 
     # Batch API pricing (50% discount)
-    BATCH_INPUT_PRICE_PER_1K = 0.00125    # $0.00125 per 1K input tokens
-    BATCH_OUTPUT_PRICE_PER_1K = 0.005     # $0.005 per 1K output tokens
+    BATCH_INPUT_PRICE_PER_1K = 0.00125  # $0.00125 per 1K input tokens
+    BATCH_OUTPUT_PRICE_PER_1K = 0.005  # $0.005 per 1K output tokens
 
     @staticmethod
     def validate():
