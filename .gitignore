@@ -37,9 +37,18 @@ data/raw/*.parquet
 # Allow committing processed, batch_input, and batch_output for Phase 1
 # (These are small and important for documentation)
 
+# Ignore chunk-specific files (intermediate/temporary)
+data/batch_input/chunks/*.jsonl
+data/batch_output/chunk*_results.jsonl
+data/results/phase2_chunk*_info.json
+data/results/chunk*_parsed.csv
+
 # Keep results ignored (analysis outputs)
 data/results/*.csv
 data/results/*.pkl
+
+# EXCEPT allow final merged results file
+!data/results/sentiment_results_2022_2023.csv
 
 # Jupyter Notebook
 .ipynb_checkpoints
