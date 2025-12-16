@@ -1,9 +1,9 @@
 {
   "num_requests": 311,
-  "total_input_tokens": 1235379,
+  "total_input_tokens": 1265616,
   "estimated_output_tokens": 155500,
-  "batch_cost_estimate": 2.32172375,
-  "realtime_cost_estimate": 4.6434475,
-  "savings": 2.32172375,
+  "batch_cost_estimate": 2.35952,
+  "realtime_cost_estimate": 4.71904,
+  "savings": 2.35952,
   "output_file": "C:\\Users\\marti\\py_projects\\llm_sentiment\\data\\batch_input\\batch_sample_2022_2023.jsonl"
 }

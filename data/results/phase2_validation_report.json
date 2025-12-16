@@ -1,0 +1,39 @@
+{
+  "validation_results": {
+    "total_speeches": 311,
+    "valid_speeches": 311,
+    "invalid_speeches": 0,
+    "validation_rate": 100.0,
+    "errors_by_speech": {},
+    "error_summary": {}
+  },
+  "distributions": {
+    "hawkish_dovish": {
+      "mean": 32.62057877813505,
+      "median": 20.0,
+      "std": 33.148698621651754,
+      "min": -20.0,
+      "max": 85.0,
+      "very_dovish": 0,
+      "dovish": 12,
+      "neutral": 111,
+      "hawkish": 78,
+      "very_hawkish": 110
+    },
+    "uncertainty": {
+      "mean": 53.665594855305464,
+      "median": 60.0,
+      "std": 18.282833642955172
+    },
+    "forward_guidance": {
+      "mean": 42.18649517684887,
+      "median": 50.0,
+      "std": 23.74686283387309
+    }
+  },
+  "validated_at": "2025-12-15T23:52:37.480807",
+  "chunks_merged": 17,
+  "total_chunks": 17,
+  "in_progress_chunks": 0,
+  "failed_chunks": 0
+}
