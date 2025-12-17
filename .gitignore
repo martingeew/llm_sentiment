@@ -47,8 +47,9 @@ data/results/chunk*_parsed.csv
 data/results/*.csv
 data/results/*.pkl
 
-# EXCEPT allow final merged results file
+# EXCEPT allow final merged results files
 !data/results/sentiment_results_2022_2023.csv
+!data/results/phase3_prepared_data.csv
 
 # Jupyter Notebook
 .ipynb_checkpoints
