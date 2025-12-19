@@ -50,6 +50,8 @@ data/results/*.pkl
 # EXCEPT allow final merged results files
 !data/results/sentiment_results_2022_2023.csv
 !data/results/phase3_prepared_data.csv
+!data/results/fed_daily_indices.csv
+!data/results/ecb_daily_indices.csv
 
 # Jupyter Notebook
 .ipynb_checkpoints
