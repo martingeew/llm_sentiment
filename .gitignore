@@ -52,6 +52,8 @@ data/results/*.pkl
 !data/results/phase3_prepared_data.csv
 !data/results/fed_daily_indices.csv
 !data/results/ecb_daily_indices.csv
+!data/results/fed_daily_indices_no_fill.csv
+!data/results/ecb_daily_indices_no_fill.csv
 
 # Jupyter Notebook
 .ipynb_checkpoints
