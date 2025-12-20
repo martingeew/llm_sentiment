@@ -126,6 +126,11 @@ def create_calendar_heatmaps(df, institution_name, variables, output_filename, s
                 dates = year_df['date'].tolist()
                 values = year_df[var].tolist()
 
+                # For topic variables, replace 0 with small epsilon to avoid color_for_none
+                # (dayplot treats 0 as "no contribution" and colors it grey)
+                if var.startswith('topic_'):
+                    values = [0.01 if v == 0 else v for v in values]
+
                 # Use vmin/vmax as-is
                 vmin_adjusted = vmin
                 vmax_adjusted = vmax
