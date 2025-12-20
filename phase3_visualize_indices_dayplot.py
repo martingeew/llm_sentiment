@@ -9,7 +9,9 @@ Creates calendar heatmap visualizations using dayplot for Fed and ECB separately
 """
 
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import dayplot as dp
 from pathlib import Path
 from src.config import Config
@@ -30,9 +32,21 @@ def get_colormap_settings(var_name):
         return ('coolwarm', 0, -100, 100)
     elif var_name in ['stocks_diffusion_index', 'bonds_diffusion_index', 'currency_diffusion_index']:
         return ('coolwarm', 50, 0, 100)
+    elif var_name.startswith('topic_'):
+        # YlOrRd colormap for topics (yellow=0, orange=mid, red=high)
+        # Set vmin=0, vmax=100 to ensure full colormap range in legend
+        return ('YlOrRd', None, 0, 100)
+    elif var_name == 'speech_count':
+        # Speech count: 1-6 scale (0 = grey for no speeches)
+        # Use darker subset of Greens colormap (0.2 to 1.0 instead of 0.0 to 1.0)
+        # This makes value=1 appear darker without affecting legend labels
+        base_cmap = plt.cm.get_cmap('Greens')
+        colors = base_cmap(np.linspace(0.3, 1.0, 256))  # Use 0.3-1.0 range for darker colors
+        dark_greens = mcolors.LinearSegmentedColormap.from_list('DarkGreens', colors)
+        return (dark_greens, None, 1, 6)
     else:
-        # Regular colormap for other metrics
-        return ('Greens', None, None, None)
+        # Greens colormap for other metrics (uncertainty, forward_guidance)
+        return ('Greens', None, 0, 100)
 
 
 def format_metric_title(var_name):
@@ -112,6 +126,16 @@ def create_calendar_heatmaps(df, institution_name, variables, output_filename, s
                 dates = year_df['date'].tolist()
                 values = year_df[var].tolist()
 
+                # Use vmin/vmax as-is
+                vmin_adjusted = vmin
+                vmax_adjusted = vmax
+
+                # Determine legend bins based on variable
+                if var == 'speech_count':
+                    legend_bins_count = 6  # Show 1, 2, 3, 4, 5, 6
+                else:
+                    legend_bins_count = 11  # Standard bins for other metrics
+
                 # Set date range for full calendar year
                 start_date = f"{year}-01-01"
                 end_date = f"{year}-12-31"
@@ -137,12 +161,13 @@ def create_calendar_heatmaps(df, institution_name, variables, output_filename, s
                         end_date=end_date,
                         cmap=cmap,
                         vcenter=vcenter,
-                        vmin=vmin,
-                        vmax=vmax,
+                        vmin=vmin_adjusted,
+                        vmax=vmax_adjusted,
                         edgecolor='white',
                         edgewidth=0.5,
                         legend=True,
-                        legend_bins=5,
+                        legend_bins=legend_bins_count,
+                        legend_labels='auto',
                         ax=ax
                     )
                 else:
@@ -153,11 +178,14 @@ def create_calendar_heatmaps(df, institution_name, variables, output_filename, s
                         start_date=start_date,
                         end_date=end_date,
                         cmap=cmap,
+                        vmin=vmin_adjusted,
+                        vmax=vmax_adjusted,
                         color_for_none='#e8e8e8',  # Light gray for days with no speeches
                         edgecolor='white',
                         edgewidth=0.5,
                         legend=True,
-                        legend_bins=4,
+                        legend_bins=legend_bins_count,
+                        legend_labels='auto',
                         ax=ax
                     )
 
