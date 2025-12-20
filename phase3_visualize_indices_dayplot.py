@@ -41,6 +41,10 @@ def get_colormap_settings(var_name):
         # Set vmin slightly negative so 0 values (replaced with 0.01) map to yellow
         # not treated as "no contribution" by dayplot
         return ("YlOrRd", None, -1, 100)
+    elif var_name in ["uncertainty", "forward_guidance_strength"]:
+        # Greens colormap for uncertainty and forward guidance
+        # Set vmin slightly negative so 0 values (replaced with 0.01) map to lightest green
+        return ("Greens", None, -1, 100)
     elif var_name == "speech_count":
         # Speech count: 1-6 scale (0 = grey for no speeches)
         # Use darker subset of Greens colormap (0.2 to 1.0 instead of 0.0 to 1.0)
@@ -52,7 +56,7 @@ def get_colormap_settings(var_name):
         dark_greens = mcolors.LinearSegmentedColormap.from_list("DarkGreens", colors)
         return (dark_greens, None, 1, 6)
     else:
-        # Greens colormap for other metrics (uncertainty, forward_guidance)
+        # Other metrics - should not reach here for policy/topic/market metrics
         return ("Greens", None, 0, 100)
 
 
@@ -132,9 +136,9 @@ def create_calendar_heatmaps(
                 dates = year_df["date"].tolist()
                 values = year_df[var].tolist()
 
-                # For topic variables, replace 0 with small epsilon to avoid color_for_none
-                # (dayplot treats 0 as "no contribution" and colors it grey)
-                if var.startswith("topic_"):
+                # For topic, uncertainty, and forward guidance, replace 0 with small epsilon
+                # to avoid color_for_none (dayplot treats 0 as "no contribution" and colors it grey)
+                if var.startswith("topic_") or var in ["uncertainty", "forward_guidance_strength"]:
                     values = [0.01 if v == 0 else v for v in values]
 
                 # Use vmin/vmax as-is
@@ -145,8 +149,8 @@ def create_calendar_heatmaps(
                 if var == "speech_count":
                     legend_bins_count = 6  # Show 1, 2, 3, 4, 5, 6
                     legend_labels_custom = "auto"
-                elif var.startswith("topic_"):
-                    # Topic variables: 5 bins for better color differentiation
+                elif var.startswith("topic_") or var in ["uncertainty", "forward_guidance_strength"]:
+                    # Topic, uncertainty, forward guidance: 5 bins for better color differentiation
                     # No labels on legend for cleaner look
                     legend_bins_count = 5
                     legend_labels_custom = None
