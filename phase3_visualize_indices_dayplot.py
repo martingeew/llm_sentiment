@@ -146,21 +146,10 @@ def create_calendar_heatmaps(
                     legend_bins_count = 6  # Show 1, 2, 3, 4, 5, 6
                     legend_labels_custom = "auto"
                 elif var.startswith("topic_"):
-                    # Topic variables: use explicit 0-100 scale in legend
-                    legend_bins_count = 11
-                    legend_labels_custom = [
-                        "0",
-                        "10",
-                        "20",
-                        "30",
-                        "40",
-                        "50",
-                        "60",
-                        "70",
-                        "80",
-                        "90",
-                        "100",
-                    ]
+                    # Topic variables: 5 bins for better color differentiation
+                    # No labels on legend for cleaner look
+                    legend_bins_count = 5
+                    legend_labels_custom = None
                 else:
                     legend_bins_count = 11  # Standard bins for other metrics
                     legend_labels_custom = "auto"
