@@ -55,17 +55,21 @@ This project is organized into 5 phases, each building on the previous one:
 - Create batch processing files
 - Compare costs: Batch API vs Real-time API
 
-### 🔄 **Phase 2** (Current): Batch Submission & Output Validation
+### ✅ **Phase 2** (Complete): Batch Submission & Output Validation
 - Submit batch job to OpenAI API
 - Monitor processing progress
 - Download and parse results
 - Validate LLM output quality
 - Verify scores are sensible
 
-### 📊 **Phase 3**: Build Sentiment Indices
-- Create time series indices (hawkish/dovish, uncertainty, etc.)
-- Aggregate by month/quarter
-- Visualize trends over time
+### ✅ **Phase 3** (Complete): Build Sentiment Indices & Visualizations
+- Create daily time series indices (hawkish/dovish, uncertainty, etc.)
+- Generate forward-filled and non-filled versions
+- Create multiple visualization types:
+  - Bar charts for policy metrics, topics, and market impact
+  - Area plots for continuous time series
+  - Calendar heatmaps for sparse data visualization
+- Validate hawkish/dovish scores against actual speech content
 
 ### 📈 **Phase 4**: Market Correlation Analysis
 - Correlate sentiment indices with market variables:
@@ -117,15 +121,47 @@ data/
 
 ---
 
-## Phase 2: Batch Submission & Output Validation (🔄 Current)
+## Phase 2: Batch Submission & Output Validation (✅ Complete)
 
 ### Goals
 
-1. 🔄 Submit batch job to OpenAI
-2. 🔄 Monitor processing progress
-3. 🔄 Download and parse results
-4. 🔄 Validate LLM output quality
-5. 🔄 Verify sentiment scores are sensible
+1. ✅ Submit batch job to OpenAI (with chunking strategy)
+2. ✅ Monitor processing progress
+3. ✅ Download and parse results from all chunks
+4. ✅ Validate LLM output quality
+5. ✅ Verify sentiment scores are sensible
+
+### Why Chunking is Needed
+
+The batch input is split into **multiple chunks** rather than submitting as a single large file. This is **essential** due to OpenAI's API limits.
+
+**Primary Reason - Enqueued Token Limit:**
+
+OpenAI enforces a limit on how many tokens can be "enqueued" (waiting to be processed) at once:
+
+```
+Error: Enqueued token limit reached for gpt-4o-2024-08-06
+Limit: 90,000 enqueued tokens per organization
+```
+
+**What this means:**
+- You cannot submit a batch with more than 90,000 input tokens at once
+- For this project, 311 speeches ≈ 5 million tokens total
+- Without chunking: Would hit the limit immediately
+- With chunking: Each chunk stays well under 90,000 tokens
+
+**Additional Benefits of Chunking:**
+1. **Error Isolation**: If one chunk fails, others complete successfully
+2. **Parallel Processing**: Multiple chunks can process simultaneously
+3. **Resume Capability**: Completed chunks don't need reprocessing
+4. **Memory Management**: Easier to load and process smaller result files
+5. **Progress Tracking**: Can monitor completion of individual chunks
+
+**For this project:**
+- 311 speeches split into **17 chunks** (~18-20 speeches per chunk)
+- Each chunk ≈ 5,000 enqueued tokens (well under the 90,000 limit)
+- Chunks submitted sequentially to stay under token limit
+- Results downloaded and combined automatically
 
 ### What You'll Get
 
@@ -141,12 +177,21 @@ After running Phase 2:
 ```
 data/
 ├── batch_output/
-│   └── batch_results_2022_2023.jsonl  # Raw LLM outputs
+│   ├── chunk01_results.jsonl          # Raw LLM outputs (chunk 1)
+│   ├── chunk02_results.jsonl          # Raw LLM outputs (chunk 2)
+│   ├── ...                            # (chunks 3-16)
+│   └── chunk17_results.jsonl          # Raw LLM outputs (chunk 17)
 └── results/
-    ├── sentiment_results_2022_2023.csv # Parsed scores
-    ├── phase2_batch_info.json          # Batch tracking
+    ├── chunk01_parsed.csv             # Parsed scores (chunk 1)
+    ├── chunk02_parsed.csv             # Parsed scores (chunk 2)
+    ├── ...                            # (chunks 3-16)
+    ├── chunk17_parsed.csv             # Parsed scores (chunk 17)
+    ├── sentiment_results_2022_2023.csv # Combined results from all chunks
+    ├── phase2_batch_info.json          # Batch tracking info
     └── phase2_validation_report.json   # Quality report
 ```
+
+**Note**: Individual chunk files are intermediate outputs. The combined `sentiment_results_2022_2023.csv` is what gets used in Phase 3.
 
 ### How to Run
 
@@ -154,6 +199,7 @@ data/
 ```bash
 python phase2_batch_submit.py
 ```
+*This script automatically handles chunking - it will submit all 17 chunks and monitor their progress.*
 
 **Option 2: Submit and check later**
 ```bash
@@ -165,8 +211,43 @@ python phase2_batch_submit.py
 python phase2_check_status.py
 ```
 
-**Expected Cost:** ~$2.32 for 2022-2023 sample
-**Expected Time:** 30 minutes to 4 hours
+**Option 3: Download results**
+```bash
+# After all chunks complete, download and combine results
+python phase2_download_results.py
+```
+
+**Expected Cost:** ~$2.32 for 2022-2023 sample (all chunks combined)
+**Expected Time:** 30 minutes to 4 hours (chunks may complete at different times)
+
+**Note**: The scripts handle all chunking automatically. You don't need to manually split files or track individual chunks - just run the scripts and they manage the chunking for you.
+
+### Chunking Workflow
+
+```
+Phase 1: Create batch file
+└─> batch_sample_2022_2023.jsonl (311 speeches, 4.9 MB)
+
+Phase 2a: Submit (automatic chunking)
+├─> Chunk 1: speeches 1-18   → Batch Job 1
+├─> Chunk 2: speeches 19-37  → Batch Job 2
+├─> ...
+└─> Chunk 17: speeches 295-311 → Batch Job 17
+
+Phase 2b: Process (parallel)
+├─> All 17 chunks process simultaneously on OpenAI servers
+└─> Each completes independently (30 min - 4 hours)
+
+Phase 2c: Download (automatic combination)
+├─> Download chunk01_results.jsonl → Parse → chunk01_parsed.csv
+├─> Download chunk02_results.jsonl → Parse → chunk02_parsed.csv
+├─> ...
+├─> Download chunk17_results.jsonl → Parse → chunk17_parsed.csv
+└─> Combine all chunks → sentiment_results_2022_2023.csv
+
+Phase 3: Use combined results
+└─> sentiment_results_2022_2023.csv (all 311 speeches together)
+```
 
 ### Validation Checks
 
@@ -179,6 +260,123 @@ The validator automatically checks:
 **Target validation rate:** >95%
 
 See [docs/PHASE2.md](docs/PHASE2.md) for detailed documentation.
+
+---
+
+## Phase 3: Build Sentiment Indices & Visualizations (✅ Complete)
+
+### Goals
+
+1. ✅ Build daily time series indices from parsed sentiment data
+2. ✅ Create both forward-filled (continuous) and non-filled (sparse) versions
+3. ✅ Generate comprehensive visualizations for analysis
+4. ✅ Validate hawkish/dovish scores against actual speeches
+
+### What You Get
+
+After running Phase 3:
+
+- **Daily Indices**: Time series for all sentiment metrics
+  - Forward-filled: Continuous daily series (no gaps)
+  - Non-filled: Only dates with actual speeches
+- **Visualizations**: Three distinct chart types
+  - Bar charts: Compare metrics on speech dates
+  - Area plots: Show trends over time with continuous data
+  - Calendar heatmaps: Visualize sparse data in calendar format
+- **Validation Report**: Assessment of score accuracy vs actual speech content
+
+### Files Created
+
+```
+data/results/
+├── phase3_prepared_data.csv          # Combined data with speech IDs
+├── fed_daily_indices.csv             # Fed indices (forward-filled)
+├── fed_daily_indices_no_fill.csv     # Fed indices (sparse)
+├── ecb_daily_indices.csv             # ECB indices (forward-filled)
+└── ecb_daily_indices_no_fill.csv     # ECB indices (sparse)
+
+reports/
+├── fed_policy_metrics_bars.png       # Fed bar charts
+├── fed_topic_indices_bars.png
+├── fed_market_impact_bars.png
+├── fed_policy_metrics_area.png       # Fed area plots
+├── fed_topic_indices_area.png
+├── fed_policy_metrics_calendar.png   # Fed calendar heatmaps
+├── fed_topic_indices_calendar.png
+├── fed_market_impact_calendar.png
+├── ecb_*.png                         # Corresponding ECB charts
+└── hawkish_dovish_validation.txt     # Validation report
+```
+
+### How to Run
+
+**Step 1: Build Daily Indices**
+```bash
+# Build forward-filled indices (continuous time series)
+python phase3_build_indices.py
+
+# Build non-filled indices (sparse, speech dates only)
+python phase3_build_indices_no_fill.py
+```
+
+**Step 2: Create Visualizations**
+```bash
+# Bar charts (uses non-filled data)
+python phase3_visualize_indices_bars.py
+
+# Area plots (uses forward-filled data)
+python phase3_visualize_indices_area.py
+
+# Calendar heatmaps (uses non-filled data)
+python phase3_visualize_indices_dayplot.py
+```
+
+**Step 3: Validate Scores**
+```bash
+# Compare hawkish/dovish scores with actual speeches
+python validate_hawkish_dovish.py
+```
+
+### Visualization Details
+
+**1. Bar Charts** (`phase3_visualize_indices_bars.py`)
+- Shows values only on dates with speeches
+- Diverging bars for metrics with neutral values:
+  - Hawkish/Dovish (centered on 0): Blue=hawkish, Red=dovish
+  - Market Impact (centered on 50): Green=bullish, Red=bearish
+- Standard bars for other metrics (topics, uncertainty, forward guidance)
+- Clean styling with removed spines for market impact charts
+
+**2. Area Plots** (`phase3_visualize_indices_area.py`)
+- Continuous time series using forward-filled data
+- Filled areas with colored lines on top
+- Special diverging colors for hawkish/dovish (red above 0, blue below 0)
+- Y-axis: 0-100 for most metrics, -100 to 100 for hawkish/dovish
+
+**3. Calendar Heatmaps** (`phase3_visualize_indices_dayplot.py`)
+- Full calendar years (2022, 2023) with sparse data
+- Uses dayplot library for professional calendar layouts
+- Diverging colormaps (coolwarm) for:
+  - Hawkish/Dovish centered on 0
+  - Market diffusion indices centered on 50
+- Sequential colormaps (YlOrRd, Greens) for other metrics
+- Grey cells indicate no speeches on that date
+
+### Validation Results
+
+The validation script checks hawkish/dovish scores by:
+1. Finding outlier (most extreme) and random samples for Fed and ECB
+2. Loading actual speech text from batch input files
+3. Comparing scores against speech content
+4. Generating assessment report
+
+**Key Findings:**
+- Score of 85.0 is REASONABLE for highly hawkish speeches (e.g., explicit 75bp rate hike commitments)
+- Score of 50.0 captures balanced/neutral stances accurately
+- LLM scoring captures policy actions and context, not just keywords
+- Simple keyword counting can miss nuanced hawkish/dovish signals
+
+See `reports/hawkish_dovish_validation.txt` for full validation report.
 
 ---
 
@@ -217,6 +415,14 @@ venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
+
+**Key dependencies include:**
+- `openai` - OpenAI API client
+- `datasets` - Hugging Face datasets library
+- `pandas` - Data manipulation
+- `matplotlib`, `seaborn` - Visualizations
+- `dayplot` - Calendar heatmap visualizations
+- `python-dotenv` - Environment variable management
 
 **4. Set up your API keys**
 
@@ -302,6 +508,33 @@ BATCH PREPARATION COMPLETE ✅
 
 **Legacy:** You can still run `python phase1_demo.py` to do everything in one go.
 
+### Run Phase 3 (Visualizations)
+
+After completing Phase 2 (batch processing), create visualizations:
+
+**Step 1: Build Daily Indices**
+```bash
+python phase3_build_indices.py
+python phase3_build_indices_no_fill.py
+```
+
+**Step 2: Create All Visualizations**
+```bash
+python phase3_visualize_indices_bars.py
+python phase3_visualize_indices_area.py
+python phase3_visualize_indices_dayplot.py
+```
+
+**Step 3: Validate Results**
+```bash
+python validate_hawkish_dovish.py
+```
+
+**What You'll See:**
+- 18 visualization files in `reports/` directory
+- Daily indices CSV files in `data/results/`
+- Validation report comparing scores to actual speeches
+
 ### Inspect the Results
 
 **View the sample data:**
@@ -325,30 +558,50 @@ cat data/results/phase1_statistics.json
 ```
 llm_sentiment/
 │
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── .env.example             # Template for API keys
-├── .gitignore              # Files to exclude from Git
+├── README.md                              # This file
+├── requirements.txt                       # Python dependencies
+├── .env.example                          # Template for API keys
+├── .gitignore                            # Files to exclude from Git
 │
-├── phase1_demo.py          # Phase 1 main script
+├── phase1_data_prep.py                   # Phase 1: Data preparation
+├── phase1_batch_prep.py                  # Phase 1: Batch file creation
+├── phase1_demo.py                        # Phase 1: Combined (legacy)
 │
-├── src/                    # Source code
-│   ├── config.py          # Configuration settings
-│   ├── data_loader.py     # Load Hugging Face dataset
-│   ├── batch_builder.py   # Create batch API files
-│   ├── batch_processor.py # Submit & monitor batch jobs
-│   └── utils.py           # Helper functions
+├── phase2_batch_submit.py                # Phase 2: Submit batch jobs
+├── phase2_check_status.py                # Phase 2: Check batch status
+├── phase2_download_results.py            # Phase 2: Download results
 │
-├── data/                   # Data files (created when you run)
-│   ├── raw/               # Downloaded datasets
-│   ├── processed/         # Cleaned/sampled data
-│   ├── batch_input/       # Files to upload to OpenAI
-│   ├── batch_output/      # Results from OpenAI
-│   └── results/           # Final analysis results
+├── phase3_build_indices.py               # Phase 3: Build daily indices (forward-filled)
+├── phase3_build_indices_no_fill.py       # Phase 3: Build daily indices (sparse)
+├── phase3_visualize_indices_bars.py      # Phase 3: Bar chart visualizations
+├── phase3_visualize_indices_area.py      # Phase 3: Area plot visualizations
+├── phase3_visualize_indices_dayplot.py   # Phase 3: Calendar heatmap visualizations
 │
-├── notebooks/             # Jupyter notebooks (for exploration)
+├── validate_hawkish_dovish.py            # Validation: Check scores vs speeches
 │
-└── config/               # Configuration files
+├── src/                                  # Source code
+│   ├── config.py                         # Configuration settings
+│   ├── data_loader.py                    # Load Hugging Face dataset
+│   ├── batch_builder.py                  # Create batch API files
+│   ├── batch_processor.py                # Submit & monitor batch jobs
+│   └── utils.py                          # Helper functions
+│
+├── data/                                 # Data files (created when you run)
+│   ├── raw/                              # Downloaded datasets
+│   ├── processed/                        # Cleaned/sampled data
+│   ├── batch_input/                      # Files to upload to OpenAI
+│   ├── batch_output/                     # Results from OpenAI
+│   └── results/                          # Daily indices and parsed data
+│
+├── reports/                              # Visualization outputs
+│   ├── *_bars.png                        # Bar chart reports
+│   ├── *_area.png                        # Area plot reports
+│   ├── *_calendar.png                    # Calendar heatmap reports
+│   └── hawkish_dovish_validation.txt     # Validation report
+│
+├── notebooks/                            # Jupyter notebooks (for exploration)
+│
+└── config/                               # Configuration files
 ```
 
 ---
@@ -389,6 +642,13 @@ Think of it like this:
 - The overall tone or stance
 - In central banking: "Hawkish" (tightening) vs "Dovish" (easing)
 
+**Chunking**
+- Breaking a large job into smaller pieces
+- **Why necessary**: OpenAI limits how much work you can queue at once (90,000 tokens)
+- Like a restaurant kitchen that can only accept 10 orders at a time - you need to submit in batches
+- In this project: 311 speeches split into 17 chunks (~18 speeches each)
+- Each chunk stays under the 90,000 token limit
+
 ### Common Issues & Solutions
 
 **Issue**: `OPENAI_API_KEY not found`
@@ -402,6 +662,9 @@ Think of it like this:
 
 **Issue**: Download is slow
 - **Solution**: First download takes time (downloading dataset). Subsequent runs use cached version.
+
+**Issue**: `Enqueued token limit reached for gpt-4o-2024-08-06`
+- **Solution**: This is why we use chunking! The scripts automatically split your data into chunks to stay under the 90,000 token limit. If you see this error, your batch file is too large - increase the number of chunks or reduce batch size.
 
 ---
 
@@ -523,15 +786,33 @@ This is a research project organized in phases. Each phase has:
 
 ### Current Phase Checklist
 
-Phase 1:
+**Phase 1 - Setup & Batch Processing** ✅
 - [x] Project structure created
 - [x] Data loader implemented
 - [x] Batch processing modules created
 - [x] Cost comparison functional
 - [x] Documentation complete
-- [ ] Run demo and validate results
-- [ ] Create Pull Request
-- [ ] Review and merge
+- [x] Run demo and validate results
+
+**Phase 2 - Batch Submission & Output** ✅
+- [x] Batch submission implemented
+- [x] Status monitoring functional
+- [x] Results download and parsing
+- [x] Output validation
+
+**Phase 3 - Indices & Visualizations** ✅
+- [x] Daily indices generation (forward-filled and sparse)
+- [x] Bar chart visualizations
+- [x] Area plot visualizations
+- [x] Calendar heatmap visualizations
+- [x] Hawkish/dovish score validation
+- [x] Documentation updated
+
+**Phase 4 - Market Correlation Analysis** (Next)
+- [ ] Market data collection
+- [ ] Correlation analysis
+- [ ] Predictive model testing
+- [ ] Results documentation
 
 ---
 
@@ -555,4 +836,4 @@ For questions about this research project, please open an issue on GitHub.
 
 ---
 
-**Last Updated**: Phase 1 - January 2025
+**Last Updated**: Phase 3 Complete - December 2025
