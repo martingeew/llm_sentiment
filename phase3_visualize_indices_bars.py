@@ -62,7 +62,19 @@ def create_bar_charts(df, institution_name, variables, output_filename, suptitle
         # Format subplot with scale information in title
         title_with_scale = format_title_with_scale(var)
         ax.set_title(title_with_scale, fontsize=12, pad=10)
-        ax.grid(True, alpha=0.3, axis='y')
+
+        # Special formatting for market impact indices
+        if var in ['stocks_diffusion_index', 'bonds_diffusion_index', 'currency_diffusion_index']:
+            # Set y-axis limits
+            ax.set_ylim(0, 100)
+            # Remove grid lines
+            ax.grid(False)
+            # Remove all spines
+            for spine in ['top', 'right', 'bottom', 'left']:
+                ax.spines[spine].set_visible(False)
+        else:
+            # Keep grid for other metrics
+            ax.grid(True, alpha=0.3, axis='y')
 
         # Remove axis labels
         ax.set_xlabel('')
@@ -106,9 +118,9 @@ def plot_diverging_bars(ax, dates, values, var, neutral_value):
         positive_color = '#2E86AB'
         negative_color = '#E63946'
     else:
-        # Diffusion indices: Bullish (>50) = green, Bearish (<50) = red
-        positive_color = '#06A77D'
-        negative_color = '#E63946'
+        # Diffusion indices: Bullish (>50) = darker green, Bearish (<50) = darker red
+        positive_color = '#048060'
+        negative_color = '#C41E28'
 
     # Create color array based on values relative to neutral
     colors = [positive_color if v > neutral_value else negative_color for v in values]
