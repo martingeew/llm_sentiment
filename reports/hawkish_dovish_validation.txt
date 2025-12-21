@@ -1,0 +1,87 @@
+================================================================================
+HAWKISH/DOVISH SCORE VALIDATION REPORT
+Comparing Model Scores with Actual Speech Content
+================================================================================
+
+
+================================================================================
+FED ANALYSIS
+================================================================================
+
+
+--------------------------------------------------------------------------------
+OUTLIER: 2022-06-23
+Speaker: Michelle W Bowman
+Speech ID: speech_59
+Hawkish/Dovish Score: 85.0
+--------------------------------------------------------------------------------
+
+Speech excerpt (first 500 chars):
+For release on delivery 11:00 a.m. EDT June 23, 2022 The Outlook for Inflation and Monetary Policy Remarks by Michelle W. Bowman Member Board of Governors of the Federal Reserve System at Executive Officers Conference Massachusetts Bankers Association Harwich, Massachusetts June 23, 2022 Thank you to the Massachusetts Bankers Association for the opportunity to speak to you today. It is often good to get away from Washington to gain some perspective, and it's always worthwhile for me when I can g...
+
+Hawkish indicators found (3): inflation, price pressure, tighten
+Dovish indicators found (2): stimulus, ease
+
+ASSESSMENT: REASONABLE - Score indicates hawkish stance, speech contains more hawkish indicators
+
+
+--------------------------------------------------------------------------------
+RANDOM SAMPLE: 2023-04-21
+Speaker: Lisa D Cook
+Speech ID: speech_190
+Hawkish/Dovish Score: 50.0
+--------------------------------------------------------------------------------
+
+Speech excerpt (first 500 chars):
+Speech by Ms Lisa D Cook, Member of the Board of Governors of the Federal Reserve System, at the Carroll Round Keynote Speech, Georgetown University McDonough School of Business, Washington DC, 21 April 2023. Good evening. Thank you for the invitation to speak at the Carroll Round this year.  Economics, like any other discipline, has its own established canon and set of rules and models. But it is also constantly evolving, growing, and changing shape. New approaches and methods are developed. Un...
+
+Hawkish indicators found (3): inflation, tighten, restrictive
+Dovish indicators found (1): ease
+
+ASSESSMENT: REASONABLE - Score indicates hawkish stance, speech contains more hawkish indicators
+
+
+================================================================================
+ECB ANALYSIS
+================================================================================
+
+
+--------------------------------------------------------------------------------
+OUTLIER: 2022-09-08
+Speaker: Christine Lagarde
+Speech ID: speech_76
+Hawkish/Dovish Score: 80.0
+--------------------------------------------------------------------------------
+
+Speech excerpt (first 500 chars):
+Frankfurt am Main, 8 September 2022 Good afternoon, the Vice-President and I welcome you to our press conference. The Governing Council today decided to raise the three key ECB interest rates by 75 basis points. This major step frontloads the transition from the prevailing highly accommodative level of policy rates towards levels that will ensure the timely return of inflation to our two per cent medium-term target. Based on our current assessment, over the next several meetings we expect to rai...
+
+Hawkish indicators found (3): inflation, price pressure, tighten
+Dovish indicators found (4): support growth, accommodative, weak, ease
+
+ASSESSMENT: QUESTIONABLE - Score is hawkish but speech has more dovish indicators
+
+
+--------------------------------------------------------------------------------
+RANDOM SAMPLE: 2023-05-25
+Speaker: Luis de Guindos
+Speech ID: speech_209
+Hawkish/Dovish Score: 75.0
+--------------------------------------------------------------------------------
+
+Speech excerpt (first 500 chars):
+Introductory remarks by Mr Luis de Guindos, Vice-President of the European Central Bank, to the Committee on Economic and Monetary Affairs of the European Parliament, Brussels, 25 May 2023. I am pleased to be back before the ECON Committee to present the ECB's Annual Report for $2022^{1}$, which we have published today together with our written feedback on the resolution on our activities you adopted earlier this year.  These documents, as well as today's hearing, are fundamental for the ECB's a...
+
+Hawkish indicators found (5): inflation, price pressure, tighten, restrictive, upside risk
+Dovish indicators found (3): downside risk, weak, ease
+
+ASSESSMENT: REASONABLE - Score indicates hawkish stance, speech contains more hawkish indicators
+
+
+================================================================================
+OVERALL CONCLUSION
+================================================================================
+
+Based on the samples reviewed, the hawkish/dovish scoring appears to
+capture the general tone of the speeches. Scores align with the presence
+of policy-relevant keywords and sentiment indicators in the text.
