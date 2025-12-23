@@ -52,7 +52,7 @@ def main():
 
     # Estimate cost
     total_speeches = len(speeches_df)
-    avg_speech_length = speeches_df['content'].str.len().mean()
+    avg_speech_length = speeches_df['text'].str.len().mean()
     estimated_input_tokens = total_speeches * (utils.estimate_tokens(str(avg_speech_length)) + 1000)  # +1000 for prompt
     estimated_output_tokens = total_speeches * 500  # ~500 tokens per response
 

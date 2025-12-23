@@ -105,7 +105,7 @@ class BatchProcessor:
             for idx, row in chunk_speeches.iterrows():
                 request = self.create_batch_request(
                     speech_id=row['speech_id'],
-                    speech_text=row['content'],
+                    speech_text=row['text'],
                     speaker=row['author'],
                     institution=row['country'],
                     date=str(row['date'].date())
