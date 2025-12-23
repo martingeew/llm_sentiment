@@ -74,53 +74,94 @@ class BatchProcessor:
 
         return request
 
-    def create_chunked_batch_files(self, speeches_df: pd.DataFrame) -> List[Path]:
+    def create_chunked_batch_files(self, speeches_df: pd.DataFrame) -> tuple[List[Path], int]:
         """
-        Create batch files with automatic chunking to stay under token limit.
+        Create batch files with automatic chunking based on token limits.
+
+        Uses token estimation to ensure each chunk stays under the token limit.
+        Handles variable speech lengths by dynamically grouping speeches.
 
         Args:
             speeches_df: DataFrame with speeches
 
         Returns:
-            List of batch file paths
+            Tuple of (batch file paths, total estimated input tokens)
         """
-        max_per_chunk = self.config['chunking']['max_speeches_per_chunk']
+        max_tokens_per_chunk = self.config['chunking']['max_tokens_per_chunk']
         total_speeches = len(speeches_df)
-        num_chunks = (total_speeches + max_per_chunk - 1) // max_per_chunk
 
-        print(f"\nCreating {num_chunks} batch chunks ({max_per_chunk} speeches per chunk)")
+        print(f"\nCreating batch chunks with token-based splitting...")
         print(f"Total speeches: {total_speeches}")
+        print(f"Max tokens per chunk: {max_tokens_per_chunk:,}")
 
+        # Build all requests first and estimate tokens
+        all_requests = []
+        print("\nEstimating tokens for each request...")
+
+        for idx, row in speeches_df.iterrows():
+            request = self.create_batch_request(
+                speech_id=row['speech_id'],
+                speech_text=row['text'],
+                speaker=row['author'],
+                institution=row['country'],
+                date=str(row['date'].date())
+            )
+
+            # Estimate tokens for this request
+            request_str = json.dumps(request)
+            request_tokens = utils.estimate_tokens(request_str)
+
+            all_requests.append({
+                'request': request,
+                'tokens': request_tokens
+            })
+
+        # Split into chunks based on token limits
+        chunks = []
+        current_chunk = []
+        current_tokens = 0
+
+        for req_info in all_requests:
+            request_tokens = req_info['tokens']
+
+            # If adding this request would exceed limit, start new chunk
+            if current_tokens + request_tokens > max_tokens_per_chunk and current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = [req_info]
+                current_tokens = request_tokens
+            else:
+                current_chunk.append(req_info)
+                current_tokens += request_tokens
+
+        # Add final chunk
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        print(f"\nSplit into {len(chunks)} chunks:")
+
+        # Write chunks to files
         batch_files = []
+        total_input_tokens = 0
 
-        for chunk_idx in range(num_chunks):
-            start_idx = chunk_idx * max_per_chunk
-            end_idx = min((chunk_idx + 1) * max_per_chunk, total_speeches)
-            chunk_speeches = speeches_df.iloc[start_idx:end_idx]
+        for chunk_idx, chunk in enumerate(chunks, 1):
+            chunk_file = self.batch_files_dir / f"chunk{chunk_idx:02d}_input.jsonl"
 
-            # Create JSONL file for this chunk
-            chunk_file = self.batch_files_dir / f"chunk{chunk_idx+1:02d}_input.jsonl"
-            requests = []
+            # Calculate chunk statistics
+            chunk_tokens = sum(req['tokens'] for req in chunk)
+            chunk_speeches = len(chunk)
+            total_input_tokens += chunk_tokens
 
-            for idx, row in chunk_speeches.iterrows():
-                request = self.create_batch_request(
-                    speech_id=row['speech_id'],
-                    speech_text=row['text'],
-                    speaker=row['author'],
-                    institution=row['country'],
-                    date=str(row['date'].date())
-                )
-                requests.append(request)
-
-            # Write JSONL file
+            # Write chunk to JSONL file
             with open(chunk_file, 'w', encoding='utf-8') as f:
-                for request in requests:
-                    f.write(json.dumps(request) + '\n')
+                for req_info in chunk:
+                    f.write(json.dumps(req_info['request']) + '\n')
 
-            print(f"  Created chunk {chunk_idx+1}/{num_chunks}: {chunk_file.name} ({len(chunk_speeches)} speeches)")
+            print(f"  Chunk {chunk_idx:2d}: {chunk_speeches:3d} speeches, ~{chunk_tokens:,} tokens")
             batch_files.append(chunk_file)
 
-        return batch_files
+        print(f"\nTotal estimated input tokens: {total_input_tokens:,}")
+
+        return batch_files, total_input_tokens
 
     def submit_batch(self, batch_file: Path) -> str:
         """

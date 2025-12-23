@@ -48,17 +48,15 @@ def main():
 
     # Step 2a: Create chunked batch files
     utils.print_section_header("CREATE BATCH FILES")
-    batch_files = processor.create_chunked_batch_files(speeches_df)
+    batch_files, estimated_input_tokens = processor.create_chunked_batch_files(speeches_df)
 
-    # Estimate cost
+    # Estimate cost using actual token counts from chunking
     total_speeches = len(speeches_df)
-    avg_speech_length = speeches_df['text'].str.len().mean()
-    estimated_input_tokens = total_speeches * (utils.estimate_tokens(str(avg_speech_length)) + 1000)  # +1000 for prompt
     estimated_output_tokens = total_speeches * 500  # ~500 tokens per response
 
     cost = utils.calculate_cost(estimated_input_tokens, estimated_output_tokens, config)
     print(f"\nEstimated cost:")
-    print(f"  Input tokens: ~{estimated_input_tokens:,}")
+    print(f"  Input tokens: {estimated_input_tokens:,}")
     print(f"  Output tokens: ~{estimated_output_tokens:,}")
     print(f"  Total cost: {utils.format_cost(cost)}")
 
