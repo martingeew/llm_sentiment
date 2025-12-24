@@ -13,7 +13,7 @@ date_range:
 # See: https://platform.openai.com/docs/models
 model:
   name: "gpt-4o-2024-08-06"
-  temperature: 0.3
+  temperature: 0.0
   response_format: "json_object"
 
 # Cost Estimates (Update based on OpenAI pricing page)
